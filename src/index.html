@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f5f1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'"
+    />
+    <title>拾光账本 · Windows</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">拾</span
+          ><span
+            ><strong>拾光账本</strong><small>把日子过得明明白白</small></span
+          >
+        </div>
+        <nav class="nav" aria-label="主导航">
+          <button class="nav-item active" data-page="ledger">
+            <span class="nav-icon">▦</span>账目明细
+          </button>
+          <button class="nav-item" data-page="analysis">
+            <span class="nav-icon">◔</span>收支分析
+          </button>
+          <button class="nav-item" data-page="finance">
+            <span class="nav-icon">◇</span>理财管理
+          </button>
+          <button class="nav-item" data-page="categories">
+            <span class="nav-icon">▤</span>类别管理
+          </button>
+          <button class="nav-item" data-page="settings">
+            <span class="nav-icon">⚙</span>数据与备份
+          </button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="sidebar-note">
+            <span>✦</span>
+            <p>每一笔记录，都是生活的一部分。</p>
+          </div>
+          <div class="privacy-note">离线保存 · 数据仅保存在本机</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="mobile-brand">拾光账本</div>
+          <div class="breadcrumb">
+            个人空间 <span>/</span>
+            <strong id="breadcrumb-name">账目明细</strong>
+          </div>
+          <div class="top-actions">
+            <span class="demo-badge">本机数据</span
+            ><button class="primary-button top-add" id="top-add" type="button">
+              <span>＋</span> 记一笔
+            </button>
+          </div>
+        </header>
+
+        <section class="page active" id="page-ledger" aria-label="账目明细">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">MY FINANCES</div>
+              <h1>让每一笔，都心中有数<span class="heading-dot">.</span></h1>
+              <p>简单记录日常收支，回头看见生活的轨迹。</p>
+            </div>
+            <div class="date-control">
+              <label for="ledger-month">查看月份</label
+              ><input type="month" id="ledger-month" />
+            </div>
+          </div>
+          <div class="summary-grid">
+            <article class="summary-card net-card">
+              <div class="card-top">
+                <span>本月结余</span><span class="card-symbol">↗</span>
+              </div>
+              <div class="summary-number" id="ledger-net">¥ 0.00</div>
+              <div class="summary-foot" id="ledger-net-hint">收入减去支出</div>
+              <div class="net-decoration"></div>
+            </article>
+            <article class="summary-card">
+              <div class="card-top">
+                <span>本月收入</span
+                ><span class="mini-icon income-icon">↓</span>
+              </div>
+              <div class="summary-number" id="ledger-income">¥ 0.00</div>
+              <div class="summary-foot">
+                <span class="foot-dot green"></span
+                ><span id="income-count">0 笔收入</span>
+              </div>
+            </article>
+            <article class="summary-card">
+              <div class="card-top">
+                <span>本月支出</span
+                ><span class="mini-icon expense-icon">↑</span>
+              </div>
+              <div class="summary-number" id="ledger-expense">¥ 0.00</div>
+              <div class="summary-foot">
+                <span class="foot-dot orange"></span
+                ><span id="expense-count">0 笔支出</span>
+              </div>
+            </article>
+          </div>
+          <div class="content-grid">
+            <section class="panel ledger-panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">TRANSACTIONS</div>
+                  <h2>
+                    账目记录
+                    <span class="record-count" id="record-count">0</span>
+                  </h2>
+                </div>
+                <button class="text-button" id="clear-filters" type="button">
+                  清除筛选
+                </button>
+              </div>
+              <div class="filter-row">
+                <div class="search-wrap">
+                  <span>⌕</span
+                  ><input
+                    type="search"
+                    id="ledger-search"
+                    placeholder="搜索描述或类别"
+                    aria-label="搜索账目"
+                  />
+                </div>
+                <select id="ledger-type" aria-label="按收支类型筛选">
+                  <option value="all">全部类型</option>
+                  <option value="expense">支出</option>
+                  <option value="income">收入</option></select
+                ><select id="ledger-category" aria-label="按类别筛选">
+                  <option value="all">全部类别</option>
+                </select>
+              </div>
+              <div id="ledger-list" class="ledger-list"></div>
+            </section>
+            <aside class="side-stack">
+              <section class="panel quick-panel">
+                <div class="eyebrow">QUICK ACTION</div>
+                <h2>今天记录了什么？</h2>
+                <p>一杯咖啡、一笔收入，随手记下来。</p>
+                <button
+                  class="primary-button wide"
+                  id="quick-add"
+                  type="button"
+                >
+                  ＋ 新增账目
+                </button>
+              </section>
+              <section class="panel insight-panel">
+                <div class="eyebrow">THIS MONTH</div>
+                <h2>支出最多的类别</h2>
+                <div id="top-category" class="top-category"></div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="page" id="page-analysis" aria-label="收支分析">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">INSIGHTS</div>
+              <h1>看清钱的来与去<span class="heading-dot">.</span></h1>
+              <p>从类别分布到净结余，找到自己的财务节奏。</p>
+            </div>
+            <div class="analysis-controls">
+              <div class="segmented" role="group" aria-label="分析周期">
+                <button type="button" class="active" data-period="month">
+                  按月</button
+                ><button type="button" data-period="year">按年</button>
+              </div>
+              <input
+                type="month"
+                id="analysis-month"
+                aria-label="分析月份"
+              /><select id="analysis-year" aria-label="分析年份"></select>
+            </div>
+          </div>
+          <div class="analysis-hero">
+            <div>
+              <div class="eyebrow">NET BALANCE</div>
+              <p id="analysis-period-label">本月净结余</p>
+              <div class="hero-number" id="analysis-net">¥ 0.00</div>
+              <div class="hero-sub" id="analysis-status">收入减去支出</div>
+            </div>
+            <div class="hero-split">
+              <div>
+                <span>收入</span><strong id="analysis-income">¥ 0.00</strong>
+              </div>
+              <div>
+                <span>支出</span><strong id="analysis-expense">¥ 0.00</strong>
+              </div>
+            </div>
+          </div>
+          <div class="analysis-grid">
+            <section class="panel chart-panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">CASH FLOW</div>
+                  <h2 id="trend-title">每周收支</h2>
+                </div>
+                <div class="chart-legend">
+                  <span><i class="legend-income"></i>收入</span
+                  ><span><i class="legend-expense"></i>支出</span>
+                </div>
+              </div>
+              <div id="trend-chart" class="trend-chart"></div>
+            </section>
+            <section class="panel distribution-panel">
+              <div class="eyebrow">EXPENSES</div>
+              <h2>支出去向</h2>
+              <div id="expense-distribution"></div>
+            </section>
+            <section class="panel distribution-panel">
+              <div class="eyebrow">INCOME</div>
+              <h2>收入来源</h2>
+              <div id="income-distribution"></div>
+            </section>
+            <section class="panel note-panel">
+              <div class="eyebrow">A LITTLE NOTE</div>
+              <h2>关于你的这段时间</h2>
+              <p id="analysis-note"></p>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" id="page-finance" aria-label="理财管理">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">WEALTH MANAGEMENT</div>
+              <h1>让闲钱，也有方向<span class="heading-dot">.</span></h1>
+              <p>资金池、在投项目与当前盈亏，一眼看清。</p>
+            </div>
+            <div class="finance-heading-actions">
+              <button class="secondary-button" id="add-transfer" type="button">
+                ＋ 资金划转</button
+              ><button class="primary-button" id="add-project" type="button">
+                ＋ 新建项目
+              </button>
+            </div>
+          </div>
+          <div class="finance-tip">
+            <span>◎</span>
+            <p>
+              资金池余额不能为负。投入项目会减少资金池，赎回后资金回到池中；到期日不会自动赎回。理财本金划转不计入日常收支。
+            </p>
+          </div>
+          <div class="finance-summary">
+            <article class="finance-metric pool-metric">
+              <span>可用资金池</span><strong id="finance-pool">¥ 0.00</strong
+              ><small>可继续投入的资金</small>
+            </article>
+            <article class="finance-metric">
+              <span>在投本金</span><strong id="finance-principal">¥ 0.00</strong
+              ><small id="finance-active-count">0 个在投项目</small>
+            </article>
+            <article class="finance-metric">
+              <span>在投当前价值</span><strong id="finance-value">¥ 0.00</strong
+              ><small>手动更新估值</small>
+            </article>
+            <article class="finance-metric">
+              <span>累计盈亏</span><strong id="finance-profit">¥ 0.00</strong
+              ><small id="finance-profit-hint">已实现 + 浮动盈亏</small>
+            </article>
+          </div>
+          <div class="finance-grid">
+            <section class="panel projects-panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">INVESTMENTS</div>
+                  <h2>
+                    理财项目
+                    <span class="record-count" id="project-count">0</span>
+                  </h2>
+                </div>
+                <div class="project-tabs">
+                  <button
+                    class="active"
+                    data-project-filter="active"
+                    type="button"
+                  >
+                    持有中</button
+                  ><button data-project-filter="redeemed" type="button">
+                    已赎回
+                  </button>
+                </div>
+              </div>
+              <div id="project-list" class="project-list"></div>
+            </section>
+            <aside class="finance-side">
+              <section class="panel pool-panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="eyebrow">MONEY POOL</div>
+                    <h2>资金池构成</h2>
+                  </div>
+                  <button type="button" class="text-button" id="edit-capital">
+                    设置起始资金
+                  </button>
+                </div>
+                <div id="pool-breakdown"></div>
+              </section>
+              <section class="panel">
+                <div class="eyebrow">RECENT ACTIVITY</div>
+                <h2>资金动态</h2>
+                <div id="finance-activity" class="finance-activity"></div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="page" id="page-categories" aria-label="类别管理">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">PERSONALIZE</div>
+              <h1>用你的方式分类<span class="heading-dot">.</span></h1>
+              <p>按自己的生活习惯创建标签，让账目更好找。</p>
+            </div>
+            <button class="primary-button" id="add-category" type="button">
+              ＋ 新建类别
+            </button>
+          </div>
+          <div class="category-intro">
+            <div class="intro-icon">✦</div>
+            <div>
+              <strong>类别与账目保持关联</strong>
+              <p>
+                修改类别名称或颜色后，使用该类别的账目会同步更新。已被账目使用的类别暂不能删除。
+              </p>
+            </div>
+          </div>
+          <div class="category-sections">
+            <section class="panel category-panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">OUTGOING</div>
+                  <h2>
+                    支出类别
+                    <span
+                      id="expense-category-count"
+                      class="record-count"
+                    ></span>
+                  </h2>
+                </div>
+              </div>
+              <div id="expense-categories" class="category-list"></div>
+            </section>
+            <section class="panel category-panel">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">INCOMING</div>
+                  <h2>
+                    收入类别
+                    <span
+                      id="income-category-count"
+                      class="record-count"
+                    ></span>
+                  </h2>
+                </div>
+              </div>
+              <div id="income-categories" class="category-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" id="page-settings" aria-label="数据与备份">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">YOUR DATA</div>
+              <h1>自己的账本，自己保管<span class="heading-dot">.</span></h1>
+              <p>账目只保存在这台电脑。定期导出备份，换电脑时再导入。</p>
+            </div>
+          </div>
+          <div class="settings-grid">
+            <section class="panel settings-panel">
+              <div class="eyebrow">BACKUP</div>
+              <h2>导出账本</h2>
+              <p>
+                将所有账目、类别和理财项目保存为一个 JSON
+                文件。建议放在你信任的备份位置。
+              </p>
+              <button type="button" class="primary-button" id="export-backup">
+                导出备份
+              </button>
+            </section>
+            <section class="panel settings-panel">
+              <div class="eyebrow">RESTORE</div>
+              <h2>导入账本</h2>
+              <p>
+                选择由本程序导出的 JSON
+                备份。导入会替换当前账本；程序会先自动保留一份旧账本。
+              </p>
+              <button type="button" class="secondary-button" id="import-backup">
+                选择备份并导入
+              </button>
+            </section>
+            <section class="panel settings-panel">
+              <div class="eyebrow">LOCAL STORAGE</div>
+              <h2>数据位置</h2>
+              <p id="data-path">正在读取数据位置……</p>
+              <button
+                type="button"
+                class="secondary-button"
+                id="open-data-folder"
+              >
+                打开数据文件夹
+              </button>
+            </section>
+            <section class="panel settings-panel">
+              <div class="eyebrow">HOW IT WORKS</div>
+              <h2>使用提示</h2>
+              <p>
+                先设置理财起始资金，再进行投入。理财本金划转不会进入日常收支分析；项目到期后需手动赎回。更新“当前价值”才能反映浮动盈亏。
+              </p>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop hidden" id="entry-modal" role="presentation">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="entry-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <div class="eyebrow">NEW ENTRY</div>
+            <h2 id="entry-modal-title">记一笔</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button close-modal"
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        </div>
+        <form id="entry-form">
+          <input type="hidden" id="entry-id" />
+          <div class="type-toggle" role="group" aria-label="收支类型">
+            <button type="button" class="active" data-entry-type="expense">
+              支出</button
+            ><button type="button" data-entry-type="income">收入</button>
+          </div>
+          <input type="hidden" id="entry-type" value="expense" />
+          <div class="field">
+            <label for="entry-amount">金额 <em>*</em></label>
+            <div class="amount-input">
+              <span>¥</span
+              ><input
+                id="entry-amount"
+                type="number"
+                min="0.01"
+                max="999999999"
+                step="0.01"
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="entry-date">日期 <em>*</em></label
+              ><input id="entry-date" type="date" required />
+            </div>
+            <div class="field">
+              <label for="entry-category">事项类别 <em>*</em></label
+              ><select id="entry-category" required></select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="entry-description">事项描述 <em>*</em></label
+            ><input
+              id="entry-description"
+              type="text"
+              maxlength="80"
+              placeholder="例如：午餐、工资、书籍……"
+              required
+            />
+          </div>
+          <div class="field">
+            <label>账目背景色</label>
+            <div
+              class="color-options"
+              id="entry-colors"
+              role="radiogroup"
+              aria-label="账目背景色"
+            ></div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button close-modal">
+              取消</button
+            ><button type="submit" class="primary-button">保存账目</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="modal-backdrop hidden" id="category-modal" role="presentation">
+      <div
+        class="modal small-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="category-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <div class="eyebrow">YOUR LABEL</div>
+            <h2 id="category-modal-title">新建类别</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button close-modal"
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        </div>
+        <form id="category-form">
+          <input type="hidden" id="category-id" />
+          <div class="field">
+            <label for="category-type">所属类型 <em>*</em></label
+            ><select id="category-type">
+              <option value="expense">支出类别</option>
+              <option value="income">收入类别</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="category-name">类别名称 <em>*</em></label
+            ><input
+              id="category-name"
+              type="text"
+              maxlength="12"
+              placeholder="例如：宠物、兼职"
+              required
+            />
+          </div>
+          <div class="field">
+            <label>类别颜色</label>
+            <div
+              class="color-options"
+              id="category-colors"
+              role="radiogroup"
+              aria-label="类别颜色"
+            ></div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button close-modal">
+              取消</button
+            ><button type="submit" class="primary-button">保存类别</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="modal-backdrop hidden" id="confirm-modal" role="presentation">
+      <div
+        class="modal small-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+      >
+        <div class="modal-head">
+          <div>
+            <div class="eyebrow">CONFIRM</div>
+            <h2 id="confirm-title">确认删除</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button close-modal"
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        </div>
+        <p class="confirm-copy" id="confirm-copy"></p>
+        <div class="modal-actions">
+          <button type="button" class="secondary-button close-modal">
+            取消</button
+          ><button type="button" class="danger-button" id="confirm-delete">
+            删除
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-backdrop hidden" id="finance-modal" role="presentation">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="finance-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <div class="eyebrow">MONEY MANAGEMENT</div>
+            <h2 id="finance-modal-title">新建理财项目</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button close-modal"
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        </div>
+        <form id="project-form" class="finance-form">
+          <input type="hidden" id="project-id" />
+          <div class="field-grid">
+            <div class="field">
+              <label for="project-name">项目名称 <em>*</em></label
+              ><input
+                id="project-name"
+                maxlength="30"
+                placeholder="例如：三个月定期"
+                required
+              />
+            </div>
+            <div class="field">
+              <label for="project-kind">理财形式 <em>*</em></label
+              ><input
+                id="project-kind"
+                maxlength="20"
+                placeholder="例如：定期存款"
+                required
+              />
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="project-invested-date">投入日期 <em>*</em></label
+              ><input id="project-invested-date" type="date" required />
+            </div>
+            <div class="field">
+              <label for="project-maturity-date">预计到期日</label
+              ><input id="project-maturity-date" type="date" />
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="project-invested">投入金额 <em>*</em></label
+              ><input
+                id="project-invested"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+              />
+            </div>
+            <div class="field">
+              <label for="project-value">当前价值 <em>*</em></label
+              ><input
+                id="project-value"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="project-rate">参考年化收益率（%）</label
+            ><input
+              id="project-rate"
+              type="number"
+              step="0.01"
+              min="-100"
+              max="1000"
+              placeholder="选填；仅作记录，不自动计算收益"
+            />
+          </div>
+          <p class="form-hint">
+            当前价值由你手动更新，用于计算浮动盈亏；年化收益率仅供参考。
+          </p>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button close-modal">
+              取消</button
+            ><button type="submit" class="primary-button">保存项目</button>
+          </div>
+        </form>
+        <form id="transfer-form" class="finance-form hidden">
+          <div class="type-toggle" role="group" aria-label="资金划转类型">
+            <button type="button" class="active" data-transfer-type="deposit">
+              转入资金池</button
+            ><button type="button" data-transfer-type="withdraw">
+              从资金池转出
+            </button>
+          </div>
+          <input id="transfer-type" type="hidden" value="deposit" />
+          <div class="field-grid">
+            <div class="field">
+              <label for="transfer-amount">金额 <em>*</em></label
+              ><input
+                id="transfer-amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+              />
+            </div>
+            <div class="field">
+              <label for="transfer-date">日期 <em>*</em></label
+              ><input id="transfer-date" type="date" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="transfer-note">备注</label
+            ><input
+              id="transfer-note"
+              maxlength="50"
+              placeholder="例如：工资结余转入"
+            />
+          </div>
+          <p class="form-hint">
+            这里记录理财专用资金的转入和转出，不影响日常收支分析。
+          </p>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button close-modal">
+              取消</button
+            ><button type="submit" class="primary-button">确认划转</button>
+          </div>
+        </form>
+        <form id="capital-form" class="finance-form hidden">
+          <div class="field-grid">
+            <div class="field">
+              <label for="capital-date">起始日期 <em>*</em></label
+              ><input id="capital-date" type="date" required />
+            </div>
+            <div class="field">
+              <label for="capital-amount">起始资金 <em>*</em></label
+              ><input
+                id="capital-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+          </div>
+          <p class="form-hint">
+            修改起始资金或日期后，会重新检查资金池在整个记录期间是否出现负数。
+          </p>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button close-modal">
+              取消</button
+            ><button type="submit" class="primary-button">保存起始资金</button>
+          </div>
+        </form>
+        <form id="redeem-form" class="finance-form hidden">
+          <input id="redeem-project-id" type="hidden" />
+          <div class="field-grid">
+            <div class="field">
+              <label for="redeem-date">赎回日期 <em>*</em></label
+              ><input id="redeem-date" type="date" required />
+            </div>
+            <div class="field">
+              <label for="redeem-amount">实际到账 <em>*</em></label
+              ><input
+                id="redeem-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+          </div>
+          <p class="form-hint">
+            实际到账金额将转入资金池，并用于计算该项目的已实现盈亏。
+          </p>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button close-modal">
+              取消</button
+            ><button type="submit" class="primary-button">确认赎回</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

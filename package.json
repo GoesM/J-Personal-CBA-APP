@@ -1,0 +1,39 @@
+{
+  "name": "j-personal-cba-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "拾光账本：Windows 离线个人记账与理财管理",
+  "author": "GoesM",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test --test-isolation=none tests/*.test.cjs",
+    "format": "prettier --write src desktop tests docs README.md package.json .github",
+    "package:win": "electron-builder --win dir zip"
+  },
+  "devDependencies": {
+    "electron": "44.4.1",
+    "electron-builder": "26.15.3",
+    "jsdom": "29.1.1",
+    "prettier": "3.9.7"
+  },
+  "build": {
+    "appId": "cn.goesm.jpersonalcba",
+    "productName": "拾光账本",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**",
+      "src/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "dir",
+        "zip"
+      ]
+    }
+  }
+}
