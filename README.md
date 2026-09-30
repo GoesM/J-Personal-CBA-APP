@@ -14,7 +14,7 @@ Windows 离线个人记账与理财管理软件。账目和理财数据只保存
 
 ## 安装
 
-从 [Releases](https://github.com/GoesM/J-Personal-CBA-APP/releases) 下载 `拾光账本-0.1.0-win.zip`，解压到任意目录后运行 `拾光账本.exe`。升级时解压新版即可；账目位于 Windows 用户数据目录，不在程序目录。当前 Windows 程序没有代码签名，首次运行可能出现发布者未知提示。
+从 [Releases](https://github.com/GoesM/J-Personal-CBA-APP/releases) 下载 `Shiguang-Ledger-0.1.0-win.zip`，解压到任意目录后运行 `拾光账本.exe`。升级时解压新版即可；账目位于 Windows 用户数据目录，不在程序目录。当前 Windows 程序没有代码签名，首次运行可能出现发布者未知提示。
 
 首次启动是空白账本，只有预设类别。`demo与设计/` 中的虚构示例不会自动导入正式程序。
 

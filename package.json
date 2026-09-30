@@ -20,6 +20,7 @@
   "build": {
     "appId": "cn.goesm.jpersonalcba",
     "productName": "拾光账本",
+    "artifactName": "Shiguang-Ledger-${version}-win.${ext}",
     "npmRebuild": false,
     "directories": {
       "output": "release"
