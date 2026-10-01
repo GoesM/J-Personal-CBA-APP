@@ -9,11 +9,12 @@ const {
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
-const { LedgerStore } = require("./storage.cjs");
+const { LedgerLocation } = require("./location.cjs");
 
 const smoke = process.argv.includes("--smoke-test");
 let window,
   store,
+  location,
   allowClose = false,
   closeRequested = false;
 let writeQueue = Promise.resolve();
@@ -37,14 +38,62 @@ ipcMain.handle("ledger", async (event, method, value) => {
   authorized(event);
   switch (method) {
     case "load":
-      return store.load();
+      return location.load();
     case "save": {
+      if (!location.ready) throw new Error("账本尚未成功读取，禁止覆盖保存");
       writeQueue = writeQueue.catch(() => {}).then(() => store.save(value));
       await writeQueue;
       return true;
     }
     case "info":
-      return { dataPath: store.file };
+      return location.info();
+    case "moveLedger": {
+      await writeQueue;
+      const chosen = await dialog.showSaveDialog(window, {
+        title: "将当前账本迁移到新位置",
+        defaultPath: path.join(
+          path.dirname(store.file),
+          "拾光账本-history.json",
+        ),
+        filters: [{ name: "JSON 账本", extensions: ["json"] }],
+      });
+      if (chosen.canceled || !chosen.filePath) return null;
+      const operation = (writeQueue = writeQueue
+        .catch(() => {})
+        .then(async () => {
+          const result = await location.migrateTo(chosen.filePath);
+          store = location.store;
+          return result;
+        }));
+      return operation;
+    }
+    case "switchLedger": {
+      await writeQueue;
+      const chosen = await dialog.showOpenDialog(window, {
+        title: "选择已有的拾光账本文件",
+        properties: ["openFile"],
+        filters: [{ name: "JSON 账本", extensions: ["json"] }],
+      });
+      if (chosen.canceled || !chosen.filePaths[0]) return null;
+      const confirmation = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "切换当前账本",
+        message: "验证所选文件后，将把它作为当前账本。原账本不会删除或覆盖。",
+        detail: chosen.filePaths[0],
+        buttons: ["取消", "切换账本"],
+        defaultId: 0,
+        cancelId: 0,
+      });
+      if (confirmation.response !== 1) return null;
+      const operation = (writeQueue = writeQueue
+        .catch(() => {})
+        .then(async () => {
+          const result = await location.useExisting(chosen.filePaths[0]);
+          store = location.store;
+          return result;
+        }));
+      return operation;
+    }
     case "openDataFolder": {
       await fs.mkdir(store.root, { recursive: true });
       const error = await shell.openPath(store.root);
@@ -131,10 +180,13 @@ async function smokeCheck() {
 app
   .whenReady()
   .then(async () => {
-    if (smoke) {
-      smokeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "shiguang-smoke-"));
-      store = new LedgerStore(smokeRoot);
-    } else store = new LedgerStore(path.join(app.getPath("userData"), "data"));
+    const appDataRoot = smoke
+      ? (smokeRoot = await fs.mkdtemp(
+          path.join(os.tmpdir(), "shiguang-smoke-"),
+        ))
+      : app.getPath("userData");
+    location = await new LedgerLocation(appDataRoot).initialize();
+    store = location.store;
     session.defaultSession.setPermissionRequestHandler(
       (_contents, _permission, callback) => callback(false),
     );

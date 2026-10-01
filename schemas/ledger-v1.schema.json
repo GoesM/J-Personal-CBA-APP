@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/GoesM/J-Personal-CBA-APP/blob/main/schemas/ledger-v1.schema.json",
+  "title": "拾光账本数据文件 v1",
+  "type": "object",
+  "required": ["schemaVersion", "categories", "entries", "finance"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "categories": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/category" }
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "finance": { "$ref": "#/$defs/finance" }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "amount": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1000000000,
+      "multipleOf": 0.01
+    },
+    "positiveAmount": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 1000000000,
+      "multipleOf": 0.01
+    },
+    "category": {
+      "type": "object",
+      "required": ["id", "name", "type", "color", "icon"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 12 },
+        "type": { "enum": ["income", "expense"] },
+        "color": { "$ref": "#/$defs/color" },
+        "icon": { "type": "string", "minLength": 1, "maxLength": 4 }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "date",
+        "categoryId",
+        "description",
+        "amount",
+        "color"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "enum": ["income", "expense"] },
+        "date": { "$ref": "#/$defs/date" },
+        "categoryId": { "$ref": "#/$defs/id" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "amount": { "$ref": "#/$defs/positiveAmount" },
+        "color": { "$ref": "#/$defs/color" }
+      }
+    },
+    "transfer": {
+      "type": "object",
+      "required": ["id", "type", "date", "amount", "note"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "enum": ["deposit", "withdraw"] },
+        "date": { "$ref": "#/$defs/date" },
+        "amount": { "$ref": "#/$defs/positiveAmount" },
+        "note": { "type": "string", "maxLength": 50 }
+      }
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "form",
+        "investedDate",
+        "invested",
+        "maturityDate",
+        "annualRate",
+        "currentValue",
+        "status"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "form": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "investedDate": { "$ref": "#/$defs/date" },
+        "invested": { "$ref": "#/$defs/positiveAmount" },
+        "maturityDate": {
+          "oneOf": [{ "const": "" }, { "$ref": "#/$defs/date" }]
+        },
+        "annualRate": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "minimum": -100, "maximum": 1000 }
+          ]
+        },
+        "currentValue": { "$ref": "#/$defs/amount" },
+        "status": { "enum": ["active", "redeemed"] },
+        "redeemedDate": { "$ref": "#/$defs/date" },
+        "redeemedAmount": { "$ref": "#/$defs/amount" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "redeemed" } } },
+          "then": { "required": ["redeemedDate", "redeemedAmount"] }
+        }
+      ]
+    },
+    "finance": {
+      "type": "object",
+      "required": ["initialCapital", "initialDate", "transfers", "projects"],
+      "properties": {
+        "initialCapital": { "$ref": "#/$defs/amount" },
+        "initialDate": { "$ref": "#/$defs/date" },
+        "transfers": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": { "$ref": "#/$defs/transfer" }
+        },
+        "projects": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": { "$ref": "#/$defs/project" }
+        }
+      }
+    }
+  }
+}

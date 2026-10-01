@@ -400,17 +400,34 @@
                 选择备份并导入
               </button>
             </section>
-            <section class="panel settings-panel">
+            <section class="panel settings-panel storage-panel">
               <div class="eyebrow">LOCAL STORAGE</div>
-              <h2>数据位置</h2>
-              <p id="data-path">正在读取数据位置……</p>
-              <button
-                type="button"
-                class="secondary-button"
-                id="open-data-folder"
-              >
-                打开数据文件夹
-              </button>
+              <h2>账本文件位置</h2>
+              <p class="storage-explanation">
+                当前账目、类别和理财数据都在下方的 JSON
+                文件中。迁移会复制完整账本到新路径，并保留旧文件；切换已有文件不会合并两份账本。
+              </p>
+              <p class="path-value" id="data-path">正在读取数据位置……</p>
+              <p class="backup-path" id="backup-path"></p>
+              <div class="settings-actions">
+                <button type="button" class="primary-button" id="move-ledger">
+                  迁移当前账本到新路径
+                </button>
+                <button
+                  type="button"
+                  class="secondary-button"
+                  id="switch-ledger"
+                >
+                  切换到已有账本
+                </button>
+                <button
+                  type="button"
+                  class="secondary-button"
+                  id="open-data-folder"
+                >
+                  打开当前文件夹
+                </button>
+              </div>
             </section>
             <section class="panel settings-panel">
               <div class="eyebrow">HOW IT WORKS</div>

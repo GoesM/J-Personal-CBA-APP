@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld("ledgerApi", {
   exportBackup: () => invoke("export"),
   importBackup: () => invoke("import"),
   info: () => invoke("info"),
+  moveLedger: () => invoke("moveLedger"),
+  switchLedger: () => invoke("switchLedger"),
   openDataFolder: () => invoke("openDataFolder"),
   onBeforeClose: (callback) => ipcRenderer.on("before-close", callback),
   closeReady: () => ipcRenderer.send("close-ready"),

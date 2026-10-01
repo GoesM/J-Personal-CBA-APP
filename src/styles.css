@@ -1025,7 +1025,8 @@ p {
 .category-row-actions button.delete-action:hover {
   color: #bf695d;
 }
-.modal-backdrop {
+.modal-backdrop,
+.recovery-backdrop {
   position: fixed;
   inset: 0;
   background: #17231db3;
@@ -1033,6 +1034,18 @@ p {
   display: grid;
   place-items: center;
   padding: 20px;
+}
+.recovery-backdrop {
+  z-index: 50;
+}
+.recovery-error {
+  background: #fff2ed;
+  border-radius: 8px;
+  color: #a35f50;
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
 }
 .modal-backdrop.hidden {
   display: none;
@@ -1798,6 +1811,35 @@ p {
 }
 .settings-panel button {
   margin-top: 12px;
+}
+.storage-panel {
+  grid-column: 1 / -1;
+}
+.storage-panel .storage-explanation,
+.storage-panel .path-value,
+.storage-panel .backup-path {
+  flex: none;
+  margin-bottom: 10px;
+}
+.storage-panel .path-value {
+  width: 100%;
+  padding: 12px 14px;
+  background: #f6f8f5;
+  border: 1px solid #e7ede6;
+  border-radius: 8px;
+  color: #3f5947;
+  user-select: text;
+}
+.storage-panel .backup-path {
+  font-size: 10px;
+}
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.settings-actions button {
+  margin-top: 3px;
 }
 @media (max-width: 580px) {
   .settings-grid {

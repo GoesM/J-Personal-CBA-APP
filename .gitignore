@@ -2,7 +2,7 @@ node_modules/
 release/*
 !release/README.md
 !release/CHANGELOG.md
-!release/验收报告.md
+!release/验收报告*.md
 demo与设计/
 *.log
 *.tmp

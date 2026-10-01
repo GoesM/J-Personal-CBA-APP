@@ -958,8 +958,77 @@
       toast(`打开失败：${error.message}`);
     }
   });
+  function updateStorageInfo(info) {
+    $("#data-path").textContent = info.dataPath;
+    $("#backup-path").textContent = `自动备份目录：${info.backupPath}`;
+  }
+  $("#move-ledger").addEventListener("click", async () => {
+    try {
+      await saveQueue;
+      const result = await window.ledgerApi.moveLedger();
+      if (!result) return;
+      updateStorageInfo(result.info);
+      toast("账本已迁移；旧文件仍保留在原位置");
+    } catch (error) {
+      toast(`迁移失败：${error.message}`);
+    }
+  });
+  $("#switch-ledger").addEventListener("click", async () => {
+    try {
+      await saveQueue;
+      const result = await window.ledgerApi.switchLedger();
+      if (!result) return;
+      state = result.state;
+      render();
+      updateStorageInfo(result.info);
+      toast("已切换到账本文件，原文件未被覆盖");
+    } catch (error) {
+      toast(`切换失败：${error.message}`);
+    }
+  });
+  let closeListenerReady = false;
+  function showRecovery(error) {
+    document.querySelector(".recovery-backdrop")?.remove();
+    const overlay = document.createElement("div");
+    overlay.className = "recovery-backdrop";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.innerHTML = `<div class="modal small-modal"><div class="eyebrow">DATA RECOVERY</div><h2>账本读取失败</h2><p class="confirm-copy">为保护已有记录，程序没有创建或覆盖账本。请检查存储设备，或选择一份已有的有效账本。</p><p class="recovery-error">${escapeHTML(error.message)}</p><div class="modal-actions"><button type="button" class="secondary-button" id="retry-load">重新尝试</button><button type="button" class="primary-button" id="choose-ledger">选择已有账本</button></div></div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#retry-load").addEventListener("click", () => {
+      overlay.remove();
+      initialize();
+    });
+    overlay
+      .querySelector("#choose-ledger")
+      .addEventListener("click", async () => {
+        try {
+          const result = await window.ledgerApi.switchLedger();
+          if (!result) return;
+          state = result.state;
+          updateStorageInfo(result.info);
+          render();
+          overlay.remove();
+          showPage("settings");
+          toast("账本已恢复并切换");
+        } catch (nextError) {
+          overlay.querySelector(".recovery-error").textContent =
+            nextError.message;
+        }
+      });
+  }
   async function initialize() {
     try {
+      if (window.ledgerApi && !closeListenerReady) {
+        window.ledgerApi.onBeforeClose(async () => {
+          try {
+            await saveQueue;
+          } finally {
+            window.ledgerApi.closeReady();
+          }
+        });
+        closeListenerReady = true;
+      }
       state = await loadState();
       render();
       const requestedPage = new URLSearchParams(window.location.search).get(
@@ -973,18 +1042,11 @@
           : "ledger",
       );
       if (window.ledgerApi) {
-        $("#data-path").textContent = (await window.ledgerApi.info()).dataPath;
-        window.ledgerApi.onBeforeClose(async () => {
-          try {
-            await saveQueue;
-          } finally {
-            window.ledgerApi.closeReady();
-          }
-        });
+        updateStorageInfo(await window.ledgerApi.info());
       } else
         $("#data-path").textContent = "浏览器预览模式：数据保存在此浏览器。";
     } catch (error) {
-      document.body.innerHTML = `<main style="max-width:600px;margin:12vh auto;padding:32px;font-family:sans-serif"><h1>账本读取失败</h1><p>为保护已有数据，程序没有创建新账本。请先检查数据文件或从备份恢复。</p><pre style="white-space:pre-wrap">${escapeHTML(error.message)}</pre></main>`;
+      showRecovery(error);
     }
   }
   initialize();

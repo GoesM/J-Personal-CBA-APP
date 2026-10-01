@@ -168,10 +168,10 @@ function validateState(state) {
 }
 
 class LedgerStore {
-  constructor(root) {
-    this.root = root;
-    this.file = path.join(root, "ledger.json");
-    this.backups = path.join(root, "backups");
+  constructor(root, filePath = path.join(root, "ledger.json")) {
+    this.file = path.resolve(filePath);
+    this.root = path.dirname(this.file);
+    this.backups = path.join(this.root, "backups");
   }
   async load() {
     try {
@@ -183,7 +183,7 @@ class LedgerStore {
       throw error;
     }
   }
-  async write(state, backupName = null) {
+  async write(state, backupName = null, exclusive = false) {
     validateState(state);
     const body = JSON.stringify(state, null, 2) + "\n";
     assert(Buffer.byteLength(body) <= MAX_BYTES, "账本超过 10 MB");
@@ -203,7 +203,13 @@ class LedgerStore {
     const temporary = path.join(this.root, `.ledger-${randomUUID()}.tmp`);
     try {
       await fs.writeFile(temporary, body, { flag: "wx" });
-      await fs.rename(temporary, this.file);
+      if (exclusive)
+        await fs.copyFile(
+          temporary,
+          this.file,
+          require("node:fs").constants.COPYFILE_EXCL,
+        );
+      else await fs.rename(temporary, this.file);
     } finally {
       await fs.rm(temporary, { force: true }).catch(() => {});
     }
@@ -214,6 +220,9 @@ class LedgerStore {
       state,
       `before-${new Date().toISOString().slice(0, 10)}.json`,
     );
+  }
+  async createNew(state) {
+    return this.write(state, null, true);
   }
   async importFrom(filePath) {
     const stat = await fs.stat(filePath);

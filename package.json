@@ -1,6 +1,6 @@
 {
   "name": "j-personal-cba-app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "拾光账本：Windows 离线个人记账与理财管理",
   "author": "GoesM",
@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test --test-isolation=none tests/*.test.cjs",
-    "format": "prettier --write src desktop tests docs README.md package.json .github",
+    "format": "prettier --write src desktop tests docs schemas README.md package.json .github",
     "package:win": "electron-builder --win dir zip"
   },
   "devDependencies": {
