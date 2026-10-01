@@ -24,13 +24,13 @@ test("空白账本、收支记录、理财资金池与备份入口", async () =>
       saved = structuredClone(value);
     },
     info: async () => ({
-      dataPath: "C:\\test\\ledger.json",
+      dataPath: "C:\\test\\ledger",
       backupPath: "C:\\test\\backups",
     }),
     moveLedger: async () => ({
       state: saved,
       info: {
-        dataPath: "D:\\books\\history.json",
+        dataPath: "D:\\books\\history",
         backupPath: "D:\\books\\backups",
       },
     }),
@@ -41,7 +41,7 @@ test("空白账本、收支记录、理财资金池与备份入口", async () =>
         finance: { ...saved.finance, projects: [] },
       },
       info: {
-        dataPath: "D:\\other\\ledger.json",
+        dataPath: "D:\\other\\ledger",
         backupPath: "D:\\other\\backups",
       },
     }),
@@ -107,13 +107,13 @@ test("空白账本、收支记录、理财资金池与备份入口", async () =>
 
   $('[data-page="settings"]').click();
   assert($("#page-settings").classList.contains("active"));
-  assert($("#data-path").textContent.includes("ledger.json"));
+  assert($("#data-path").textContent.includes("ledger"));
   $("#move-ledger").click();
   await tick();
-  assert.equal($("#data-path").textContent, "D:\\books\\history.json");
+  assert.equal($("#data-path").textContent, "D:\\books\\history");
   $("#switch-ledger").click();
   await tick();
-  assert.equal($("#data-path").textContent, "D:\\other\\ledger.json");
+  assert.equal($("#data-path").textContent, "D:\\other\\ledger");
   assert.equal($("#record-count").textContent, "0");
   dom.window.close();
 });
@@ -137,7 +137,7 @@ test("配置路径失效时提供恢复入口且不保存空账本", async () =>
     },
     switchLedger: async () => ({
       state: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         categories: [],
         entries: [],
         finance: {
@@ -148,7 +148,7 @@ test("配置路径失效时提供恢复入口且不保存空账本", async () =>
         },
       },
       info: {
-        dataPath: "D:\\recovered\\ledger.json",
+        dataPath: "D:\\recovered\\ledger",
         backupPath: "D:\\recovered\\backups",
       },
     }),
@@ -162,7 +162,7 @@ test("配置路径失效时提供恢复入口且不保存空账本", async () =>
   $("#choose-ledger").click();
   await tick();
   assert.equal($(".recovery-backdrop"), null);
-  assert.equal($("#data-path").textContent, "D:\\recovered\\ledger.json");
+  assert.equal($("#data-path").textContent, "D:\\recovered\\ledger");
   assert.equal(savedCount, 0);
   dom.window.close();
 });

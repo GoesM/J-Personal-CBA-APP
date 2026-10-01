@@ -6,7 +6,7 @@ const path = require("node:path");
 const { LedgerStore, validateState } = require("../desktop/storage.cjs");
 
 const baseline = () => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   categories: [
     { id: "food", name: "餐饮", type: "expense", color: "#e3a681", icon: "☕" },
   ],
@@ -28,27 +28,50 @@ const baseline = () => ({
     projects: [],
   },
 });
+const isolated = async (t, prefix) => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+  t.after(() => fs.rm(temp, { recursive: true, force: true }));
+  return { temp, root: path.join(temp, "ledger") };
+};
 
-test("账本原子保存、读取、每日旧版备份", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "cba-store-test-"));
-  t.after(() => fs.rm(root, { recursive: true, force: true }));
+test("按日拆分，只改动相关日期并保留旧版", async (t) => {
+  const { root } = await isolated(t, "cba-store-test-");
   const store = new LedgerStore(root);
   assert.equal(await store.load(), null);
   const original = baseline();
   await store.save(original);
+  const manifest = JSON.parse(
+    await fs.readFile(path.join(root, "manifest.json"), "utf8"),
+  );
+  const dayFile = path.join(
+    root,
+    "generations",
+    manifest.generation,
+    "entries",
+    "2026",
+    "2026-09-01.json",
+  );
+  assert.equal(
+    JSON.parse(await fs.readFile(dayFile, "utf8")).entries.length,
+    1,
+  );
   const changed = structuredClone(original);
   changed.entries[0].amount = 30;
   await store.save(changed);
   assert.equal((await store.load()).entries[0].amount, 30);
+  const backupRoot = path.join(root, "backups");
+  const backupDay = (await fs.readdir(backupRoot))[0];
   const backup = await fs.readFile(
-    path.join(
-      root,
-      "backups",
-      `before-${new Date().toISOString().slice(0, 10)}.json`,
-    ),
+    path.join(backupRoot, backupDay, "entries", "2026", "2026-09-01.json"),
     "utf8",
   );
   assert.equal(JSON.parse(backup).entries[0].amount, 20);
+  const next = structuredClone(changed);
+  next.entries.push({ ...next.entries[0], id: "e2", date: "2026-09-02" });
+  const oldDayBody = await fs.readFile(dayFile, "utf8");
+  await store.save(next);
+  assert.equal(await fs.readFile(dayFile, "utf8"), oldDayBody);
+  assert.equal((await store.load()).entries.length, 2);
 });
 
 test("拒绝类别错配与资金池历史负余额", () => {
@@ -70,21 +93,80 @@ test("拒绝类别错配与资金池历史负余额", () => {
   assert.throws(() => validateState(negative), /资金池余额不能为负/);
 });
 
-test("损坏或无效导入不会覆盖原账本", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "cba-import-test-"));
-  t.after(() => fs.rm(root, { recursive: true, force: true }));
+test("导入无效备份不覆盖；有效导入切换存储代并保留原代", async (t) => {
+  const { temp, root } = await isolated(t, "cba-import-test-");
   const store = new LedgerStore(root);
   await store.save(baseline());
-  const invalid = path.join(root, "bad.json");
+  const invalid = path.join(temp, "bad.json");
   await fs.writeFile(invalid, '{"schemaVersion":99}');
   await assert.rejects(store.importFrom(invalid), /不支持的版本/);
   assert.equal((await store.load()).entries[0].amount, 20);
   const replacement = baseline();
   replacement.entries[0].amount = 40;
-  const valid = path.join(root, "valid.json");
+  const valid = path.join(temp, "valid.json");
   await fs.writeFile(valid, JSON.stringify(replacement));
   await store.importFrom(valid);
   assert.equal((await store.load()).entries[0].amount, 40);
-  const names = await fs.readdir(path.join(root, "backups"));
-  assert(names.some((name) => name.startsWith("before-import-")));
+  assert(
+    (await fs.readdir(path.join(root, "backups"))).some((name) =>
+      name.startsWith("before-import-"),
+    ),
+  );
+  assert.equal((await fs.readdir(path.join(root, "generations"))).length, 2);
+});
+
+test("未完成的跨日期写入在下次加载时重放", async (t) => {
+  const { root } = await isolated(t, "cba-pending-test-");
+  const store = new LedgerStore(root);
+  await store.save(baseline());
+  const manifest = JSON.parse(
+    await fs.readFile(path.join(root, "manifest.json"), "utf8"),
+  );
+  const generationRoot = path.join(root, "generations", manifest.generation);
+  const moved = { ...baseline().entries[0], date: "2026-09-02" };
+  await fs.writeFile(
+    path.join(generationRoot, "pending.json"),
+    JSON.stringify({
+      schemaVersion: 2,
+      operations: [
+        { path: "entries/2026/2026-09-01.json", body: null },
+        {
+          path: "entries/2026/2026-09-02.json",
+          body: JSON.stringify({
+            schemaVersion: 2,
+            date: "2026-09-02",
+            entries: [moved],
+          }),
+        },
+      ],
+    }),
+  );
+  await fs.writeFile(
+    path.join(
+      generationRoot,
+      "entries",
+      "2026",
+      ".ledger-12345678-1234-1234-1234-123456789abc.tmp",
+    ),
+    "unfinished temporary file",
+  );
+  const reopened = new LedgerStore(root);
+  const state = await reopened.load();
+  assert.equal(state.entries.length, 1);
+  assert.equal(state.entries[0].date, "2026-09-02");
+  await assert.rejects(
+    fs.stat(path.join(generationRoot, "pending.json")),
+    /ENOENT/,
+  );
+});
+
+test("运行中账本文件夹被移走时拒绝保存", async (t) => {
+  const { temp, root } = await isolated(t, "cba-disconnected-test-");
+  const store = new LedgerStore(root);
+  await store.save(baseline());
+  await fs.rename(root, path.join(temp, "moved-away"));
+  const changed = baseline();
+  changed.entries[0].amount = 21;
+  await assert.rejects(store.save(changed), /文件夹已丢失/);
+  await assert.rejects(fs.stat(root), /ENOENT/);
 });

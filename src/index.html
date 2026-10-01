@@ -402,23 +402,22 @@
             </section>
             <section class="panel settings-panel storage-panel">
               <div class="eyebrow">LOCAL STORAGE</div>
-              <h2>账本文件位置</h2>
+              <h2>账本文件夹位置</h2>
               <p class="storage-explanation">
-                当前账目、类别和理财数据都在下方的 JSON
-                文件中。迁移会复制完整账本到新路径，并保留旧文件；切换已有文件不会合并两份账本。
+                日常账目按日期分别保存在此文件夹中，类别与理财数据独立保存。迁移会复制完整账本到新文件夹，并保留旧文件夹；切换已有账本不会合并两份数据。
               </p>
               <p class="path-value" id="data-path">正在读取数据位置……</p>
               <p class="backup-path" id="backup-path"></p>
               <div class="settings-actions">
                 <button type="button" class="primary-button" id="move-ledger">
-                  迁移当前账本到新路径
+                  迁移当前账本到新文件夹
                 </button>
                 <button
                   type="button"
                   class="secondary-button"
                   id="switch-ledger"
                 >
-                  切换到已有账本
+                  切换到已有账本文件夹
                 </button>
                 <button
                   type="button"

@@ -50,12 +50,8 @@ ipcMain.handle("ledger", async (event, method, value) => {
     case "moveLedger": {
       await writeQueue;
       const chosen = await dialog.showSaveDialog(window, {
-        title: "将当前账本迁移到新位置",
-        defaultPath: path.join(
-          path.dirname(store.file),
-          "拾光账本-history.json",
-        ),
-        filters: [{ name: "JSON 账本", extensions: ["json"] }],
+        title: "为新账本文件夹选择位置和名称",
+        defaultPath: path.join(path.dirname(store.root), "拾光账本"),
       });
       if (chosen.canceled || !chosen.filePath) return null;
       const operation = (writeQueue = writeQueue
@@ -70,15 +66,14 @@ ipcMain.handle("ledger", async (event, method, value) => {
     case "switchLedger": {
       await writeQueue;
       const chosen = await dialog.showOpenDialog(window, {
-        title: "选择已有的拾光账本文件",
-        properties: ["openFile"],
-        filters: [{ name: "JSON 账本", extensions: ["json"] }],
+        title: "选择已有的拾光账本文件夹",
+        properties: ["openDirectory"],
       });
       if (chosen.canceled || !chosen.filePaths[0]) return null;
       const confirmation = await dialog.showMessageBox(window, {
         type: "question",
         title: "切换当前账本",
-        message: "验证所选文件后，将把它作为当前账本。原账本不会删除或覆盖。",
+        message: "验证所选文件夹后，将把它作为当前账本。原账本不会删除或覆盖。",
         detail: chosen.filePaths[0],
         buttons: ["取消", "切换账本"],
         defaultId: 0,
@@ -122,8 +117,7 @@ ipcMain.handle("ledger", async (event, method, value) => {
       const confirmation = await dialog.showMessageBox(window, {
         type: "warning",
         title: "确认导入账本",
-        message:
-          "导入会替换当前账本。程序会先把旧账本留在本机 backups 文件夹。",
+        message: "导入会替换当前账本。程序会保留原有账本存储代，供故障恢复。",
         buttons: ["取消", "导入并替换"],
         defaultId: 0,
         cancelId: 0,
@@ -156,7 +150,7 @@ async function smokeCheck() {
   for (let attempt = 0; attempt < 50; attempt++) {
     const report = await window.webContents.executeJavaScript(`({
       title: document.title,
-      ready: document.querySelector('#data-path')?.textContent?.includes('ledger.json'),
+      ready: document.querySelector('#data-path')?.textContent?.includes('ledger'),
       pool: document.querySelector('#finance-pool')?.textContent,
       entries: document.querySelector('#record-count')?.textContent,
       categories: document.querySelectorAll('.category-row').length

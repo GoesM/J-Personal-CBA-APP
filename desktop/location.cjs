@@ -3,14 +3,14 @@ const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { LedgerStore } = require("./storage.cjs");
 
-function normalizeLedgerPath(filePath) {
+function normalizeLedgerDirectory(directory) {
   if (
-    typeof filePath !== "string" ||
-    !path.isAbsolute(filePath) ||
-    path.extname(filePath).toLowerCase() !== ".json"
+    typeof directory !== "string" ||
+    !path.isAbsolute(directory) ||
+    path.extname(directory).toLowerCase() === ".json"
   )
-    throw new Error("请选择绝对路径下的 .json 账本文件");
-  return path.resolve(filePath);
+    throw new Error("请选择绝对路径下的账本文件夹，不要选择 .json 文件");
+  return path.resolve(directory);
 }
 
 function samePath(a, b) {
@@ -18,32 +18,32 @@ function samePath(a, b) {
   return a === b;
 }
 
-/** Per-computer pointer to the active ledger; the ledger itself stays portable. */
+/** Per-computer pointer to the active ledger directory. */
 class LedgerLocation {
   constructor(appDataRoot) {
     this.appDataRoot = path.resolve(appDataRoot);
     this.configFile = path.join(this.appDataRoot, "storage-location.json");
-    this.defaultFile = path.join(this.appDataRoot, "data", "ledger.json");
-    this.file = this.defaultFile;
-    this.store = this.storeFor(this.file);
+    this.defaultDirectory = path.join(this.appDataRoot, "data", "ledger");
+    this.directory = this.defaultDirectory;
+    this.store = this.storeFor(this.directory);
     this.configError = null;
     this.ready = false;
   }
 
-  storeFor(filePath) {
-    return new LedgerStore(path.dirname(filePath), filePath);
+  storeFor(directory) {
+    return new LedgerStore(directory);
   }
 
   async initialize() {
     try {
       const config = JSON.parse(await fs.readFile(this.configFile, "utf8"));
-      if (config.schemaVersion !== 1)
+      if (config.schemaVersion !== 2)
         throw new Error("不支持的账本位置设置版本");
-      const filePath = normalizeLedgerPath(config.dataPath);
-      if (samePath(filePath, this.configFile))
-        throw new Error("账本文件不能与位置设置文件相同");
-      this.file = filePath;
-      this.store = this.storeFor(filePath);
+      const directory = normalizeLedgerDirectory(config.dataDirectory);
+      if (samePath(directory, this.appDataRoot))
+        throw new Error("账本文件夹不能与程序配置目录相同");
+      this.directory = directory;
+      this.store = this.storeFor(directory);
     } catch (error) {
       if (error.code !== "ENOENT") this.configError = error;
     }
@@ -52,10 +52,10 @@ class LedgerLocation {
 
   info() {
     return {
-      dataPath: this.file,
+      dataPath: this.directory,
       backupPath: this.store.backups,
-      defaultPath: this.defaultFile,
-      customPath: !samePath(this.file, this.defaultFile),
+      defaultPath: this.defaultDirectory,
+      customPath: !samePath(this.directory, this.defaultDirectory),
     };
   }
 
@@ -63,13 +63,13 @@ class LedgerLocation {
     if (this.configError)
       throw new Error(`账本位置设置无法读取：${this.configError.message}`);
     const state = await this.store.load();
-    if (state === null && !samePath(this.file, this.defaultFile))
-      throw new Error(`已设置的账本文件不存在：${this.file}`);
+    if (state === null && !samePath(this.directory, this.defaultDirectory))
+      throw new Error(`已设置的账本文件夹不存在：${this.directory}`);
     this.ready = true;
     return state;
   }
 
-  async writeConfig(filePath) {
+  async writeConfig(directory) {
     await fs.mkdir(this.appDataRoot, { recursive: true });
     const temporary = path.join(
       this.appDataRoot,
@@ -78,8 +78,11 @@ class LedgerLocation {
     try {
       await fs.writeFile(
         temporary,
-        JSON.stringify({ schemaVersion: 1, dataPath: filePath }, null, 2) +
-          "\n",
+        JSON.stringify(
+          { schemaVersion: 2, dataDirectory: directory },
+          null,
+          2,
+        ) + "\n",
         { flag: "wx" },
       );
       await fs.rename(temporary, this.configFile);
@@ -88,12 +91,12 @@ class LedgerLocation {
     }
   }
 
-  async migrateTo(filePath) {
-    const target = normalizeLedgerPath(filePath);
-    if (samePath(target, this.file))
+  async migrateTo(directory) {
+    const target = normalizeLedgerDirectory(directory);
+    if (samePath(target, this.directory))
       return { state: await this.load(), info: this.info() };
-    if (samePath(target, this.configFile))
-      throw new Error("账本文件不能与位置设置文件相同");
+    if (samePath(target, this.appDataRoot))
+      throw new Error("账本文件夹不能与程序配置目录相同");
     const state = await this.load();
     if (!state) throw new Error("当前还没有可迁移的账本");
     const candidate = this.storeFor(target);
@@ -102,27 +105,27 @@ class LedgerLocation {
     } catch (error) {
       if (error.code === "EEXIST")
         throw new Error(
-          "目标文件已存在。请使用“切换到已有账本”或选择新文件名。",
+          "目标文件夹已存在。请使用“切换到已有账本”或选择新文件夹名。",
         );
       throw error;
     }
     await this.writeConfig(target);
-    this.file = target;
+    this.directory = target;
     this.store = candidate;
     this.configError = null;
     this.ready = true;
     return { state, info: this.info() };
   }
 
-  async useExisting(filePath) {
-    const target = normalizeLedgerPath(filePath);
-    if (samePath(target, this.configFile))
-      throw new Error("账本文件不能与位置设置文件相同");
+  async useExisting(directory) {
+    const target = normalizeLedgerDirectory(directory);
+    if (samePath(target, this.appDataRoot))
+      throw new Error("账本文件夹不能与程序配置目录相同");
     const candidate = this.storeFor(target);
     const state = await candidate.load();
-    if (!state) throw new Error("所选文件不存在或不是有效账本");
+    if (!state) throw new Error("所选文件夹不存在或不是有效账本");
     await this.writeConfig(target);
-    this.file = target;
+    this.directory = target;
     this.store = candidate;
     this.configError = null;
     this.ready = true;
@@ -130,4 +133,4 @@ class LedgerLocation {
   }
 }
 
-module.exports = { LedgerLocation, normalizeLedgerPath };
+module.exports = { LedgerLocation, normalizeLedgerDirectory };

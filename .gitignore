@@ -12,6 +12,11 @@ env/
 data/
 backups/
 ledger.json
+ledger/
+generations/
+manifest.json
+pending.json
+storage-location.json
 *.key
 *.p12
 *.pfx

@@ -1,7 +1,7 @@
 /* 拾光账本 Windows 初版：界面逻辑。持久化由受限 Electron 桥接完成。 */
 (() => {
   "use strict";
-  const STORAGE_KEY = "shiguang-ledger-local-v1";
+  const STORAGE_KEY = "shiguang-ledger-local-v2";
   const ENTRY_COLORS = [
     "#e7f0e6",
     "#f8eadd",
@@ -79,7 +79,7 @@
       ["other-income", "其他收入", "income", "#c49ab8", "◌"],
     ].map(([id, name, type, color, icon]) => ({ id, name, type, color, icon }));
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       categories,
       entries: [],
       finance: {
@@ -104,6 +104,7 @@
       if (raw) {
         const parsed = JSON.parse(raw);
         if (
+          parsed.schemaVersion === 2 &&
           Array.isArray(parsed.categories) &&
           Array.isArray(parsed.entries) &&
           parsed.finance?.projects &&
@@ -968,7 +969,7 @@
       const result = await window.ledgerApi.moveLedger();
       if (!result) return;
       updateStorageInfo(result.info);
-      toast("账本已迁移；旧文件仍保留在原位置");
+      toast("账本已迁移；旧文件夹仍保留在原位置");
     } catch (error) {
       toast(`迁移失败：${error.message}`);
     }
@@ -981,7 +982,7 @@
       state = result.state;
       render();
       updateStorageInfo(result.info);
-      toast("已切换到账本文件，原文件未被覆盖");
+      toast("已切换到账本文件夹，原账本未被覆盖");
     } catch (error) {
       toast(`切换失败：${error.message}`);
     }
@@ -993,7 +994,7 @@
     overlay.className = "recovery-backdrop";
     overlay.setAttribute("role", "dialog");
     overlay.setAttribute("aria-modal", "true");
-    overlay.innerHTML = `<div class="modal small-modal"><div class="eyebrow">DATA RECOVERY</div><h2>账本读取失败</h2><p class="confirm-copy">为保护已有记录，程序没有创建或覆盖账本。请检查存储设备，或选择一份已有的有效账本。</p><p class="recovery-error">${escapeHTML(error.message)}</p><div class="modal-actions"><button type="button" class="secondary-button" id="retry-load">重新尝试</button><button type="button" class="primary-button" id="choose-ledger">选择已有账本</button></div></div>`;
+    overlay.innerHTML = `<div class="modal small-modal"><div class="eyebrow">DATA RECOVERY</div><h2>账本读取失败</h2><p class="confirm-copy">为保护已有记录，程序没有创建或覆盖账本。请检查存储设备，或选择一份已有的有效账本文件夹。</p><p class="recovery-error">${escapeHTML(error.message)}</p><div class="modal-actions"><button type="button" class="secondary-button" id="retry-load">重新尝试</button><button type="button" class="primary-button" id="choose-ledger">选择已有账本</button></div></div>`;
     document.body.appendChild(overlay);
     overlay.querySelector("#retry-load").addEventListener("click", () => {
       overlay.remove();

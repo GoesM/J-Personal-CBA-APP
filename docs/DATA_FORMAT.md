@@ -1,58 +1,42 @@
-# 账本数据与存储规范（v1）
+# 账本历史存储规范（v2）
 
-[返回首页](../README.md) · [使用说明](USAGE.md) · [JSON Schema](../schemas/ledger-v1.schema.json)
+[返回首页](../README.md) · [使用说明](USAGE.md) · [JSON Schema](../schemas/ledger-v2.schema.json)
 
-## 当前保存方式
+## 为什么按日拆分
 
-拾光账本使用**单个 UTF-8 JSON 快照文件**保存完整账本，默认文件名为 `ledger.json`。新增、修改或删除账目后，程序在内存中更新账本，校验后写入同目录临时文件，再替换主文件。它不是“每笔账一份文件”，也不是数据库或逐条追加的操作日志。
+旧版把类别、全部账目和理财信息放在一个 JSON 快照里。个人账本即使只有数 MB，整文件读写通常也不会立刻变得极慢；真正的问题是**每次记账都要重写所有历史**。新版把日常账目按日期拆分，普通记账只写被改动的日期文件。改变一笔账目的日期时，原日期和新日期两个文件都会更新。类别或理财变化只改独立的元数据文件。
 
-默认位置是 Electron 用户数据目录下的 `data/ledger.json`；在“数据与备份”页面可查看实际绝对路径。每天第一次覆盖旧账本前，程序在账本同目录的 `backups/` 中留一份 `before-YYYY-MM-DD.json`。导入备份前另留一份带时间戳的 `before-import-*.json`。**编辑或删除某条账目会改变当前快照；旧版备份只是恢复点，不是逐次修改审计日志。**
+拆分不等于按需读取：当前界面启动时仍加载所有日期文件，以支持全历史搜索和分析。启动读取量仍随历史增长，且大量小文件有文件系统开销。后续如需明显优化启动速度，应增加按月份加载和统计索引，而不是继续细拆文件。
 
-## 根对象
+## 目录结构
 
-| 字段            | 类型 | 规则                                 |
-| --------------- | ---- | ------------------------------------ |
-| `schemaVersion` | 整数 | 当前固定为 `1`；不支持的版本拒绝读取 |
-| `categories`    | 数组 | 收入和支出类别，最多 1000 个         |
-| `entries`       | 数组 | 日常收支记录，最多 100000 条         |
-| `finance`       | 对象 | 理财资金池、资金划转和项目           |
+默认账本目录是 Electron 用户数据目录下的 `data/ledger/`，用户可在“数据与备份”中选择其他绝对路径下的账本**文件夹**。结构如下：
 
-### 类别 `categories[]`
+```text
+ledger/
+├─ manifest.json
+├─ generations/
+│  └─ g-<UUID>/
+│     ├─ meta.json
+│     ├─ entries/
+│     │  └─ 2026/
+│     │     ├─ 2026-10-01.json
+│     │     └─ 2026-10-02.json
+│     └─ pending.json                 # 仅在跨文件写入尚未完成时出现
+└─ backups/
+   ├─ 2026-10-02/
+   │  ├─ meta.json                    # 当日首次修改前的旧版
+   │  └─ entries/2026/2026-10-01.json
+   └─ before-import-<时间戳>.json    # 导入前的旧清单
+```
 
-`id`（非空稳定字符串，最长 80）、`name`（1–12 字符）、`type`（`income`/`expense`）、`color`（`#RRGGBB`）、`icon`（1–4 字符）。同一列表内 `id` 不可重复。修改名称或颜色后，引用其 `id` 的历史账目会同步显示新值。
+`manifest.json` 是活动存储代的指针，例如 `{"schemaVersion":2,"generation":"g-..."}`。导入完整备份时先写入全新的存储代，再原子切换清单；旧存储代保留在 `generations/`。普通保存只修改活动存储代。
 
-### 日常账目 `entries[]`
-
-`id`（非空稳定字符串，最长 80）、`type`（`income`/`expense`）、`date`（`YYYY-MM-DD` 本地日历日期）、`categoryId`（必须指向同类型的类别）、`description`（1–80 字符）、`amount`（人民币金额，正数，最多两位小数，最大 10 亿）、`color`（该笔账目的 `#RRGGBB` 背景色）。同一列表内 `id` 不可重复。存储数组的先后顺序没有业务含义，界面按日期排序。
-
-### 理财资金池 `finance`
-
-| 字段             | 类型 | 规则                          |
-| ---------------- | ---- | ----------------------------- |
-| `initialCapital` | 金额 | 起始资金，非负                |
-| `initialDate`    | 日期 | 起始资金生效日                |
-| `transfers`      | 数组 | 外部转入/转出，最多 100000 条 |
-| `projects`       | 数组 | 理财项目，最多 100000 个      |
-
-`transfers[]`：`id`、`type`（`deposit` 转入/`withdraw` 转出）、`date`、`amount`（正数）、`note`（可为空，最长 50 字符）。
-
-`projects[]`：`id`、`name`（1–30 字符）、`form`（理财形式，1–20 字符）、`investedDate`、`invested`（正数本金）、`maturityDate`（预计到期日，或空字符串）、`annualRate`（参考年化百分数，或 `null`）、`currentValue`（非负手动估值）、`status`（`active`/`redeemed`）。`redeemed` 项目还必须有 `redeemedDate` 和非负 `redeemedAmount`。预计到期日不产生自动资金流水；参考年化不自动计算当前价值。
-
-所有金额存为 JSON 十进制数字，最多两位小数。涉及资金池余额的校验换算为整数分后计算，避免浮点误差使余额小于零。
-
-## 关系与资金守恒
-
-1. 日常账目的 `categoryId` 必须指向存在且收支类型一致的类别。
-2. 资金池余额 = 起始资金 + 外部转入 − 外部转出 − 项目投入 + 已赎回到账。
-3. 对资金事件按日期排序；同日先转入、赎回，再投入、转出。任一事件后余额为负则拒绝保存或导入。
-4. 理财本金流转不计入日常 `entries` 的收入/支出分析。
-5. `id` 在各自数组内唯一。修改现有项目仍保留原 `id`，账目与类别的关联不依赖名称。
-
-## 示例（虚构数据）
+### `meta.json`
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "categories": [
     {
       "id": "food",
@@ -62,46 +46,56 @@
       "icon": "☕"
     }
   ],
+  "finance": {
+    "initialCapital": 1000,
+    "initialDate": "2026-10-01",
+    "transfers": [],
+    "projects": []
+  }
+}
+```
+
+`categories` 最多 1000 个。类别字段为 `id`（非空稳定字符串，最长 80）、`name`（1–12 字符）、`type`（`income` 或 `expense`）、`color`（`#RRGGBB`）、`icon`（1–4 字符）。`id` 不可重复；历史账目通过 `categoryId` 引用类别，改名会同步改变历史显示。
+
+`finance` 包含 `initialCapital`、`initialDate`、`transfers[]`、`projects[]`。划转记录有 `id`、`type`（`deposit`／`withdraw`）、`date`、`amount`、`note`。项目有 `id`、`name`、`form`、`investedDate`、`invested`、`maturityDate`、`annualRate`、`currentValue`、`status`；已赎回项目还需要 `redeemedDate` 与 `redeemedAmount`。参考年化与预计到期日只供记录，不自动计算收益或赎回。当前一个项目只支持一次投入和一次完整赎回。
+
+### `entries/YYYY/YYYY-MM-DD.json`
+
+只有存在账目的日期才生成文件。文件名、`date` 和其中每笔账目的 `date` 必须相同：
+
+```json
+{
+  "schemaVersion": 2,
+  "date": "2026-10-02",
   "entries": [
     {
       "id": "entry-1",
       "type": "expense",
-      "date": "2026-10-01",
+      "date": "2026-10-02",
       "categoryId": "food",
       "description": "午餐",
       "amount": 25.5,
       "color": "#f8eadd"
     }
-  ],
-  "finance": {
-    "initialCapital": 1000,
-    "initialDate": "2026-10-01",
-    "transfers": [],
-    "projects": [
-      {
-        "id": "project-1",
-        "name": "短期定期",
-        "form": "定期存款",
-        "investedDate": "2026-10-01",
-        "invested": 500,
-        "maturityDate": "2027-01-01",
-        "annualRate": 1.1,
-        "currentValue": 500,
-        "status": "active"
-      }
-    ]
-  }
+  ]
 }
 ```
 
-实际文件必须通过 [`schemas/ledger-v1.schema.json`](../schemas/ledger-v1.schema.json) 的字段约束和程序的跨记录校验。导入备份使用同一格式，没有另设包装层。
+账目 `id` 在全账本内唯一；`categoryId` 必须指向同一收支类型的现存类别。`description` 为 1–80 字符，金额为正数、最多两位小数、不超过 10 亿，背景色为 `#RRGGBB`。没有账目的日期文件会删除。单个日期文件上限 1 MB，`meta.json` 上限 10 MB；总账目最多 100000 条。
 
-## 自定义路径与恢复
+日期统一为本地日历日期 `YYYY-MM-DD`，不附加时区。金额以 JSON 十进制数字保存；资金池校验先换算为整数分。资金池余额 = 起始资金 + 外部转入 − 外部转出 − 项目投入 + 赎回到账。按日期检查事件，同日先转入和赎回，再投入和转出；任何时点余额为负都会拒绝保存。理财本金流转不计入日常收支分析。
 
-路径设置单独写在本机 Electron 用户数据目录的 `storage-location.json`，格式为 `{"schemaVersion":1,"dataPath":"绝对路径/账本.json"}`。这个**指针文件不包含账目，也不包含在 JSON 备份里**。程序启动时先读取指针，再加载账本。
+## 写入、恢复与备份
 
-- **迁移当前账本到新路径**：先验证并复制当前快照到一个尚不存在的 `.json` 文件；复制成功后才更新指针。旧账本和旧备份留在原位置，新备份写在新账本同目录的 `backups/`。若复制或指针更新失败，旧账本仍可用。
-- **切换到已有账本**：先验证所选 JSON 的结构、类别引用和资金池历史余额，再更新指针；不合并、不覆盖两份账本。
-- 若自定义路径的文件丢失、磁盘未连接或文件损坏，程序拒绝创建空白账本覆盖历史，并提供重试和重新选择有效账本的入口。
+1. 程序先校验完整内存状态，并比较当前状态，找出变化的日期文件和 `meta.json`。
+2. 覆盖现有文件前，在 `backups/当天日期/` 对每个被改动文件最多保存一份旧版。新日期没有旧版可备份。
+3. 将本次文件操作写入 `pending.json`，再逐个通过临时文件与原子替换写入目标。全部完成后删除 `pending.json`。
+4. 如进程中断，下次启动先重放 `pending.json`，再读取账本。损坏或缺失的正式文件会阻止正常初始化，不会悄悄生成空账本。
 
-请在关闭程序后再用其他工具移动或编辑账本文件；两台设备同时写同一云盘文件可能互相覆盖。本版没有并发合并或端到端加密，JSON 文件和备份都是明文，应保存在可信目录。
+自动旧版文件是恢复材料，并非每次修改的审计日志。请定期手动导出完整备份。导出文件仍是**单个 JSON**，方便携带和导入，但它只用于偶发备份，不承担日常写入。导出对象格式为 `{"schemaVersion":2,"categories":[],"entries":[],"finance":{...}}`，最多 100 MB；字段约束见 [JSON Schema](../schemas/ledger-v2.schema.json)。导入前先校验完整内容，再写新存储代并切换活动清单。
+
+## 路径设置
+
+当前账本文件夹的绝对路径单独保存在应用用户数据目录的 `storage-location.json`：`{"schemaVersion":2,"dataDirectory":"D:\\账本\\我的账本"}`。该文件没有财务记录，也不包含在导出备份中。迁移到新文件夹时先生成完整的新账本，成功后更新位置设置；旧目录与旧备份留在原处。切换已有账本时先验证所选目录，不合并两份数据。
+
+v2 **不读取 v1 的单文件账本或位置设置**。当前软件尚未进入实际使用，因此本次不提供自动迁移；若曾试用旧版，请先保留旧文件，不要把它当作 v2 文件夹打开。账本及备份均为明文。请在关闭程序后用其他工具移动或编辑，避免两台设备同时写同一个同步盘目录。
