@@ -88,6 +88,7 @@
         transfers: [],
         projects: [],
       },
+      analysisPreferences: { excludedCategoryIds: [] },
     };
   }
 
@@ -140,6 +141,11 @@
     return saveQueue;
   }
   const category = (id) => state.categories.find((item) => item.id === id);
+  const excludedCategoryIds = () => {
+    if (!Array.isArray(state.analysisPreferences?.excludedCategoryIds))
+      state.analysisPreferences = { excludedCategoryIds: [] };
+    return state.analysisPreferences.excludedCategoryIds;
+  };
   const sum = (array, fn) =>
     round(array.reduce((total, item) => total + fn(item), 0));
 
@@ -335,8 +341,10 @@
     $("#trend-title").textContent =
       analysisPeriod === "month" ? "每周收支" : "每月收支";
     renderTrend(items);
-    renderDistribution("#expense-distribution", expenses);
-    renderDistribution("#income-distribution", incomes);
+    renderDistributionControls("expense");
+    renderDistributionControls("income");
+    renderDistribution("#expense-distribution", expenses, "expense");
+    renderDistribution("#income-distribution", incomes, "income");
     const top = groupByCategory(expenses)[0];
     $("#analysis-note").textContent =
       items.length === 0
@@ -379,12 +387,31 @@
       )
       .join("");
   }
-  function renderDistribution(selector, items) {
-    const groups = groupByCategory(items),
-      total = sum(items, (item) => item.amount);
+  function renderDistributionControls(type) {
+    const items = state.categories.filter((item) => item.type === type);
+    const excluded = new Set(excludedCategoryIds());
+    const selected = items.filter((item) => !excluded.has(item.id)).length;
+    $(`#${type}-category-filter`).innerHTML =
+      `<div class="distribution-control-head"><span>已选 ${selected} / ${items.length} 类</span><div class="distribution-control-actions"><button type="button" data-distribution-action="all" data-distribution-type="${type}">全选</button><button type="button" data-distribution-action="none" data-distribution-type="${type}">清空</button></div></div><div class="distribution-options">${items.length ? items.map((item) => `<label class="distribution-option ${excluded.has(item.id) ? "is-excluded" : ""}"><input type="checkbox" data-distribution-category="${escapeHTML(item.id)}" ${excluded.has(item.id) ? "" : "checked"}><span>${escapeHTML(item.name)}</span></label>`).join("") : '<span class="distribution-empty">暂无类别，可先到类别管理添加。</span>'}</div>`;
+  }
+  function renderDistribution(selector, items, type) {
+    const excluded = new Set(excludedCategoryIds());
+    const selectedCategories = state.categories.filter(
+      (item) => item.type === type && !excluded.has(item.id),
+    );
+    if (!selectedCategories.length) {
+      $(selector).innerHTML =
+        '<div class="distribution-empty">尚未选择参与统计的类别。勾选后即可查看占比。</div>';
+      return;
+    }
+    const selectedItems = items.filter(
+      (item) => !excluded.has(item.categoryId),
+    );
+    const groups = groupByCategory(selectedItems),
+      total = sum(selectedItems, (item) => item.amount);
     if (!groups.length) {
       $(selector).innerHTML =
-        '<div class="distribution-empty">这段时间还没有相关记录，分布会在记账后出现。</div>';
+        '<div class="distribution-empty">所选类别在这段时间没有记录。</div>';
       return;
     }
     let position = 0;
@@ -394,7 +421,7 @@
       return `${item.color} ${start}% ${position}%`;
     });
     $(selector).innerHTML =
-      `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${segments.join(",")})"><div class="donut-center"><span>总计</span><strong>${money(total)}</strong></div></div><div class="distribution-list">${groups.map((item) => `<div class="distribution-row"><span><i style="background:${escapeHTML(item.color)}"></i>${escapeHTML(item.name)}</span><strong>${Math.round((item.amount / total) * 100)}%</strong></div>`).join("")}</div></div>`;
+      `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${segments.join(",")})"><div class="donut-center"><span>所选总计</span><strong>${money(total)}</strong></div></div><div class="distribution-list">${groups.map((item) => `<div class="distribution-row" title="${escapeHTML(item.name)}：${money(item.amount)}"><span><i style="background:${escapeHTML(item.color)}"></i>${escapeHTML(item.name)}</span><strong>${Math.round((item.amount / total) * 100)}%</strong></div>`).join("")}</div></div>`;
   }
 
   function renderCategories() {
@@ -781,6 +808,33 @@
     analysisYear = Number(event.target.value);
     renderAnalysis();
   });
+  $("#page-analysis").addEventListener("change", (event) => {
+    const checkbox = event.target;
+    if (!checkbox.matches("input[data-distribution-category]")) return;
+    const id = checkbox.dataset.distributionCategory;
+    if (!category(id)) return;
+    const excluded = new Set(excludedCategoryIds());
+    if (checkbox.checked) excluded.delete(id);
+    else excluded.add(id);
+    state.analysisPreferences.excludedCategoryIds = [...excluded];
+    save();
+    renderAnalysis();
+  });
+  $("#page-analysis").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-distribution-action]");
+    if (!button) return;
+    const excluded = new Set(excludedCategoryIds());
+    state.categories
+      .filter((item) => item.type === button.dataset.distributionType)
+      .forEach((item) => {
+        if (button.dataset.distributionAction === "all")
+          excluded.delete(item.id);
+        else excluded.add(item.id);
+      });
+    state.analysisPreferences.excludedCategoryIds = [...excluded];
+    save();
+    renderAnalysis();
+  });
   $("#add-category").addEventListener("click", () => openCategory());
   $("#category-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -818,7 +872,9 @@
       if (state.entries.some((entry) => entry.categoryId === item.id))
         return toast("这个类别已有账目使用，暂不能删除。");
       confirmDelete(`删除类别“${item.name}”？`, () => {
+        const remaining = excludedCategoryIds().filter((id) => id !== item.id);
         state.categories = state.categories.filter((cat) => cat.id !== item.id);
+        state.analysisPreferences.excludedCategoryIds = remaining;
         save();
         render();
         toast("类别已删除");

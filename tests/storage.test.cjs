@@ -118,6 +118,41 @@ test("类别随各自账本保存，并包含在完整备份中", async (t) => {
   assert.deepEqual((await second.load()).categories, firstState.categories);
 });
 
+test("分析图表的类别筛选随账本和备份保存", async (t) => {
+  const { temp, root } = await isolated(t, "cba-analysis-preferences-test-");
+  const first = new LedgerStore(root);
+  const state = baseline();
+  await first.save(state);
+  state.analysisPreferences.excludedCategoryIds = ["food"];
+  await first.save(state);
+  assert.deepEqual((await new LedgerStore(root).load()).analysisPreferences, {
+    excludedCategoryIds: ["food"],
+  });
+  const backup = path.join(temp, "backup.json");
+  await first.exportTo(backup);
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(backup, "utf8")).analysisPreferences,
+    { excludedCategoryIds: ["food"] },
+  );
+  const second = new LedgerStore(path.join(temp, "second"));
+  await second.importFrom(backup);
+  assert.deepEqual((await second.load()).analysisPreferences, {
+    excludedCategoryIds: ["food"],
+  });
+  const invalid = baseline();
+  invalid.analysisPreferences = { excludedCategoryIds: ["unknown"] };
+  assert.throws(() => validateState(invalid), /分析图表的类别筛选无效/);
+});
+
+test("已有 v2 账本未保存分析选项时默认全选", async (t) => {
+  const { root } = await isolated(t, "cba-old-v2-preferences-test-");
+  await fs.mkdir(root);
+  await new LedgerStore(root).writeGeneration(root, baseline());
+  const loaded = await new LedgerStore(root).load();
+  assert.deepEqual(loaded.analysisPreferences, { excludedCategoryIds: [] });
+  assert.equal(loaded.entries.length, 1);
+});
+
 test("导入无效备份不覆盖；有效导入切换存储代并保留原代", async (t) => {
   const { temp, root } = await isolated(t, "cba-import-test-");
   const store = new LedgerStore(root);

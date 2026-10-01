@@ -849,11 +849,77 @@ p {
 .distribution-panel {
   min-height: 315px;
 }
+.distribution-hint {
+  margin: 6px 0 0;
+  color: #8b988c;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.distribution-controls {
+  margin-top: 15px;
+  padding: 12px;
+  border: 1px solid #e8ece5;
+  border-radius: 10px;
+  background: #fafbf8;
+}
+.distribution-control-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #68786b;
+  font-size: 11px;
+}
+.distribution-control-actions {
+  display: flex;
+  gap: 8px;
+}
+.distribution-control-actions button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #598168;
+  font-size: 11px;
+  cursor: pointer;
+}
+.distribution-control-actions button:hover {
+  text-decoration: underline;
+}
+.distribution-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.distribution-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid #dce5da;
+  border-radius: 7px;
+  background: #fff;
+  color: #546759;
+  font-size: 11px;
+  cursor: pointer;
+}
+.distribution-option.is-excluded {
+  color: #a3ada3;
+  border-color: #ebeeea;
+  background: #f6f7f4;
+}
+.distribution-option input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: #698f72;
+  cursor: pointer;
+}
 .donut-wrap {
   display: flex;
   align-items: center;
   gap: 19px;
-  margin-top: 25px;
+  margin-top: 18px;
 }
 .donut {
   width: 137px;

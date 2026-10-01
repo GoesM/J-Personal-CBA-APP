@@ -78,6 +78,16 @@ function validateState(state) {
     );
     categories.set(item.id, item);
   }
+  if (state.analysisPreferences === undefined)
+    state.analysisPreferences = { excludedCategoryIds: [] };
+  const excluded = state.analysisPreferences?.excludedCategoryIds;
+  assert(
+    Array.isArray(excluded) &&
+      excluded.length <= state.categories.length &&
+      excluded.every((id) => typeof id === "string" && categories.has(id)) &&
+      new Set(excluded).size === excluded.length,
+    "分析图表的类别筛选无效",
+  );
   ids.clear();
   for (const item of state.entries) {
     assert(text(item.id, 80) && !ids.has(item.id), "账目 ID 重复或无效");
@@ -192,6 +202,7 @@ const metaBody = (state) =>
     schemaVersion: 2,
     categories: state.categories,
     finance: state.finance,
+    analysisPreferences: state.analysisPreferences,
   });
 const dayBody = (date, entries) => json({ schemaVersion: 2, date, entries });
 
@@ -335,6 +346,7 @@ class LedgerStore {
       categories: meta.categories,
       entries,
       finance: meta.finance,
+      analysisPreferences: meta.analysisPreferences,
     });
     this.manifest = manifest;
     this.cachedState = structuredClone(state);

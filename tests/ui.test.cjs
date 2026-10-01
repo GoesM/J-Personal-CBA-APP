@@ -170,3 +170,120 @@ test("配置路径失效时提供恢复入口且不保存空账本", async () =>
   assert.equal(savedCount, 0);
   dom.window.close();
 });
+
+test("占比图按勾选类别计算，并记住当前账本的选择", async () => {
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  let saved = {
+    schemaVersion: 2,
+    categories: [
+      { id: "food", name: "食", type: "expense", color: "#e3a681", icon: "食" },
+      {
+        id: "travel",
+        name: "行",
+        type: "expense",
+        color: "#87ad8f",
+        icon: "行",
+      },
+      {
+        id: "salary",
+        name: "劳务",
+        type: "income",
+        color: "#8ba9cf",
+        icon: "劳",
+      },
+    ],
+    entries: [
+      {
+        id: "e1",
+        type: "expense",
+        date,
+        categoryId: "food",
+        description: "午餐",
+        amount: 10,
+        color: "#e7f0e6",
+      },
+      {
+        id: "e2",
+        type: "expense",
+        date,
+        categoryId: "travel",
+        description: "车费",
+        amount: 30,
+        color: "#e7f0e6",
+      },
+      {
+        id: "e3",
+        type: "income",
+        date,
+        categoryId: "salary",
+        description: "劳务",
+        amount: 100,
+        color: "#e7f0e6",
+      },
+    ],
+    finance: {
+      initialCapital: 0,
+      initialDate: date,
+      transfers: [],
+      projects: [],
+    },
+    analysisPreferences: { excludedCategoryIds: [] },
+  };
+  const open = async () => {
+    const dom = new JSDOM(html, {
+      url: "http://localhost/",
+      runScripts: "dangerously",
+    });
+    dom.window.scrollTo = () => {};
+    dom.window.structuredClone = structuredClone;
+    dom.window.ledgerApi = {
+      load: async () => structuredClone(saved),
+      save: async (state) => {
+        saved = structuredClone(state);
+      },
+      info: async () => ({
+        dataPath: "D:\\ledger",
+        backupPath: "D:\\ledger\\backups",
+      }),
+      onBeforeClose: () => {},
+      closeReady: () => {},
+    };
+    dom.window.eval(script);
+    await tick();
+    dom.window.document.querySelector('[data-page="analysis"]').click();
+    return dom;
+  };
+  const dom = await open();
+  const $ = (selector) => dom.window.document.querySelector(selector);
+  assert($("#expense-distribution").textContent.includes("40.00"));
+  const food = $('[data-distribution-category="food"]');
+  food.checked = false;
+  food.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  await tick();
+  assert.deepEqual(saved.analysisPreferences.excludedCategoryIds, ["food"]);
+  assert($("#expense-distribution").textContent.includes("30.00"));
+  assert(!$("#expense-distribution").textContent.includes("食"));
+  assert($("#analysis-expense").textContent.includes("40.00"));
+  $(
+    '[data-distribution-action="none"][data-distribution-type="income"]',
+  ).click();
+  await tick();
+  assert($("#income-distribution").textContent.includes("尚未选择"));
+  dom.window.close();
+
+  const reopened = await open();
+  assert.equal(
+    reopened.window.document.querySelector(
+      '[data-distribution-category="food"]',
+    ).checked,
+    false,
+  );
+  assert.equal(
+    reopened.window.document.querySelector(
+      '[data-distribution-category="salary"]',
+    ).checked,
+    false,
+  );
+  reopened.window.close();
+});

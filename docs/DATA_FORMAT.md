@@ -46,6 +46,7 @@ ledger/
       "icon": "☕"
     }
   ],
+  "analysisPreferences": { "excludedCategoryIds": [] },
   "finance": {
     "initialCapital": 1000,
     "initialDate": "2026-10-01",
@@ -56,6 +57,8 @@ ledger/
 ```
 
 `categories` 最多 1000 个。类别字段为 `id`（非空稳定字符串，最长 80）、`name`（1–12 字符）、`type`（`income` 或 `expense`）、`color`（`#RRGGBB`）、`icon`（1–4 字符）。**类别属于当前账本**，与账目、理财数据一起保存在该账本目录；切换账本会加载另一份账本自己的类别，完整导出和导入也包含类别。`id` 不可重复；历史账目通过 `categoryId` 引用类别，改名会同步改变历史显示。
+
+`analysisPreferences.excludedCategoryIds` 保存当前账本分析页**不参与支出／收入占比图**的类别 ID。未列出的类别默认参与，新建类别也默认参与；删除类别时会清理对应 ID。饼图及其“所选总计”只用已勾选类别重新计算，页面顶部总收支、净结余和趋势仍统计全部账目。这个设置跟随账本目录、迁移和完整 JSON 备份。已有 v2 账本没有该字段时按空数组处理，即全部类别参与。
 
 `finance` 包含 `initialCapital`、`initialDate`、`transfers[]`、`projects[]`。划转记录有 `id`、`type`（`deposit`／`withdraw`）、`date`、`amount`、`note`。项目有 `id`、`name`、`form`、`investedDate`、`invested`、`maturityDate`、`annualRate`、`currentValue`、`status`；已赎回项目还需要 `redeemedDate` 与 `redeemedAmount`。参考年化与预计到期日只供记录，不自动计算收益或赎回。当前一个项目只支持一次投入和一次完整赎回。
 
@@ -92,7 +95,7 @@ ledger/
 3. 将本次文件操作写入 `pending.json`，再逐个通过临时文件与原子替换写入目标。全部完成后删除 `pending.json`。
 4. 如进程中断，下次启动先重放 `pending.json`，再读取账本。损坏或缺失的正式文件会阻止正常初始化，不会悄悄生成空账本。
 
-自动旧版文件是恢复材料，并非每次修改的审计日志。请定期手动导出完整备份。导出文件仍是**单个 JSON**，方便携带和导入，但它只用于偶发备份，不承担日常写入。导出对象格式为 `{"schemaVersion":2,"categories":[],"entries":[],"finance":{...}}`，最多 100 MB；字段约束见 [JSON Schema](../schemas/ledger-v2.schema.json)。导入前先校验完整内容，再写新存储代并切换活动清单。
+自动旧版文件是恢复材料，并非每次修改的审计日志。请定期手动导出完整备份。导出文件仍是**单个 JSON**，方便携带和导入，但它只用于偶发备份，不承担日常写入。导出对象格式为 `{"schemaVersion":2,"categories":[],"entries":[],"finance":{...},"analysisPreferences":{"excludedCategoryIds":[]}}`，最多 100 MB；字段约束见 [JSON Schema](../schemas/ledger-v2.schema.json)。导入前先校验完整内容，再写新存储代并切换活动清单。
 
 ## 路径设置
 
