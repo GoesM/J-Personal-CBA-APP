@@ -93,6 +93,31 @@ test("拒绝类别错配与资金池历史负余额", () => {
   assert.throws(() => validateState(negative), /资金池余额不能为负/);
 });
 
+test("类别随各自账本保存，并包含在完整备份中", async (t) => {
+  const { temp, root } = await isolated(t, "cba-categories-test-");
+  const first = new LedgerStore(root);
+  const second = new LedgerStore(path.join(temp, "another-ledger"));
+  const firstState = baseline();
+  await first.save(firstState);
+  const secondState = baseline();
+  secondState.categories[0].name = "饮食";
+  await second.save(secondState);
+
+  firstState.categories[0].name = "食";
+  firstState.categories[0].color = "#123456";
+  await first.save(firstState);
+  assert.equal((await first.load()).categories[0].name, "食");
+  assert.equal((await second.load()).categories[0].name, "饮食");
+
+  const backup = path.join(temp, "complete-backup.json");
+  await first.exportTo(backup);
+  const exported = JSON.parse(await fs.readFile(backup, "utf8"));
+  assert.deepEqual(exported.categories, firstState.categories);
+  assert.equal(exported.entries[0].categoryId, "food");
+  await second.importFrom(backup);
+  assert.deepEqual((await second.load()).categories, firstState.categories);
+});
+
 test("导入无效备份不覆盖；有效导入切换存储代并保留原代", async (t) => {
   const { temp, root } = await isolated(t, "cba-import-test-");
   const store = new LedgerStore(root);

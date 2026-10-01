@@ -37,6 +37,9 @@ test("空白账本、收支记录、理财资金池与备份入口", async () =>
     switchLedger: async () => ({
       state: {
         ...saved,
+        categories: saved.categories.map((item, index) =>
+          index === 0 ? { ...item, name: "食" } : item,
+        ),
         entries: [],
         finance: { ...saved.finance, projects: [] },
       },
@@ -115,6 +118,7 @@ test("空白账本、收支记录、理财资金池与备份入口", async () =>
   await tick();
   assert.equal($("#data-path").textContent, "D:\\other\\ledger");
   assert.equal($("#record-count").textContent, "0");
+  assert($(".category-sections").textContent.includes("食"));
   dom.window.close();
 });
 

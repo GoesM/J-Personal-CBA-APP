@@ -55,7 +55,7 @@ ledger/
 }
 ```
 
-`categories` 最多 1000 个。类别字段为 `id`（非空稳定字符串，最长 80）、`name`（1–12 字符）、`type`（`income` 或 `expense`）、`color`（`#RRGGBB`）、`icon`（1–4 字符）。`id` 不可重复；历史账目通过 `categoryId` 引用类别，改名会同步改变历史显示。
+`categories` 最多 1000 个。类别字段为 `id`（非空稳定字符串，最长 80）、`name`（1–12 字符）、`type`（`income` 或 `expense`）、`color`（`#RRGGBB`）、`icon`（1–4 字符）。**类别属于当前账本**，与账目、理财数据一起保存在该账本目录；切换账本会加载另一份账本自己的类别，完整导出和导入也包含类别。`id` 不可重复；历史账目通过 `categoryId` 引用类别，改名会同步改变历史显示。
 
 `finance` 包含 `initialCapital`、`initialDate`、`transfers[]`、`projects[]`。划转记录有 `id`、`type`（`deposit`／`withdraw`）、`date`、`amount`、`note`。项目有 `id`、`name`、`form`、`investedDate`、`invested`、`maturityDate`、`annualRate`、`currentValue`、`status`；已赎回项目还需要 `redeemedDate` 与 `redeemedAmount`。参考年化与预计到期日只供记录，不自动计算收益或赎回。当前一个项目只支持一次投入和一次完整赎回。
 
