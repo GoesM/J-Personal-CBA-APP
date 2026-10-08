@@ -1,6 +1,7 @@
 /* 拾光账本 Windows 初版：界面逻辑。持久化由受限 Electron 桥接完成。 */
 (() => {
   "use strict";
+  const Accounting = window.LedgerAccounting;
   const STORAGE_KEY = "shiguang-ledger-local-v2";
   const ENTRY_COLORS = [
     "#e7f0e6",
@@ -148,6 +149,17 @@
   };
   const sum = (array, fn) =>
     round(array.reduce((total, item) => total + fn(item), 0));
+  const actualEntries = (entries) =>
+    entries
+      .map((item) => ({ ...item, amount: Accounting.actualAmount(item) }))
+      .filter((item) => item.amount > 0);
+  const specialSummary = (entry) =>
+    Accounting.components(entry)
+      .map(
+        (part) =>
+          `${part.name}${part.party ? ` · ${part.party}` : ""} ${money(part.amount)}`,
+      )
+      .join("；");
 
   function toast(message) {
     const element = $("#toast");
@@ -159,6 +171,7 @@
   function showModal(selector) {
     const modal = $(selector);
     modal.classList.remove("hidden");
+    modal.querySelector(".modal")?.scrollTo?.({ top: 0 });
     document.body.style.overflow = "hidden";
     setTimeout(
       () =>
@@ -209,11 +222,11 @@
     const current = monthEntries(ledgerMonth);
     const income = sum(
       current.filter((item) => item.type === "income"),
-      (item) => item.amount,
+      (item) => Accounting.actualAmount(item),
     );
     const expense = sum(
       current.filter((item) => item.type === "expense"),
-      (item) => item.amount,
+      (item) => Accounting.actualAmount(item),
     );
     $("#ledger-net").textContent = money(income - expense);
     $("#ledger-income").textContent = money(income);
@@ -222,8 +235,7 @@
       `${current.filter((item) => item.type === "income").length} 笔收入`;
     $("#expense-count").textContent =
       `${current.filter((item) => item.type === "expense").length} 笔支出`;
-    $("#ledger-net-hint").textContent =
-      income >= expense ? "本月收支有余，继续保持" : "本月支出超过收入";
+    $("#ledger-net-hint").textContent = "实际收支：已排除债务本金、垫付与报销";
     const categorySelect = $("#ledger-category");
     const selected = categorySelect.value;
     categorySelect.innerHTML =
@@ -248,7 +260,7 @@
           (categorySelect.value === "all" ||
             item.categoryId === categorySelect.value) &&
           (!term ||
-            `${item.description} ${category(item.categoryId)?.name || ""}`
+            `${item.description} ${category(item.categoryId)?.name || ""} ${specialSummary(item)}`
               .toLocaleLowerCase()
               .includes(term)),
       )
@@ -266,14 +278,15 @@
               `<div class="day-group"><div class="day-title">${formatDate(date)} · ${items.length} 笔</div>${items
                 .map((item) => {
                   const cat = category(item.categoryId);
-                  return `<div class="entry-row"><div class="entry-swatch" style="background:${escapeHTML(item.color)}">${escapeHTML(cat?.icon || "◌")}</div><div class="entry-main"><strong>${escapeHTML(item.description)}</strong><small>${escapeHTML(cat?.name || "未分类")} · ${item.type === "income" ? "收入" : "支出"}</small></div><div class="entry-amount ${item.type}">${item.type === "income" ? "+" : "−"}${money(item.amount)}</div><div class="entry-actions"><button data-entry-edit="${escapeHTML(item.id)}" type="button" aria-label="编辑${escapeHTML(item.description)}">编辑</button><button class="delete-action" data-entry-delete="${escapeHTML(item.id)}" type="button" aria-label="删除${escapeHTML(item.description)}">删除</button></div></div>`;
+                  const special = item.special?.length || item.credit;
+                  return `<div class="entry-row"><div class="entry-swatch" style="background:${escapeHTML(item.color)}">${escapeHTML(cat?.icon || "◌")}</div><div class="entry-main"><strong>${escapeHTML(item.description)}</strong><small>${escapeHTML(cat?.name || "未分类")} · ${item.type === "income" ? "收入" : "支出"}</small>${special ? `<div class="entry-breakdown">${escapeHTML(specialSummary(item))}<br>本笔现金${item.type === "income" ? "流入" : "流出"} ${money(Accounting.cashAmount(item))}</div>` : ""}</div><div class="entry-amount ${item.type}">${item.type === "income" ? "+" : "−"}${money(item.amount)}${item.credit ? "<small>含信用付款</small>" : ""}</div><div class="entry-actions"><button data-entry-edit="${escapeHTML(item.id)}" type="button" aria-label="编辑${escapeHTML(item.description)}">编辑</button><button class="delete-action" data-entry-delete="${escapeHTML(item.id)}" type="button" aria-label="删除${escapeHTML(item.description)}">删除</button></div></div>`;
                 })
                 .join("")}</div>`,
           )
           .join("")
       : `<div class="empty"><div><div class="empty-symbol">◌</div><strong>这里还没有账目</strong>试试切换月份或筛选条件，也可以记下第一笔。</div></div>`;
     const expenseGroups = groupByCategory(
-      current.filter((item) => item.type === "expense"),
+      actualEntries(current).filter((item) => item.type === "expense"),
     );
     const top = expenseGroups[0];
     $("#top-category").innerHTML = top
@@ -297,6 +310,69 @@
     return [...grouped.values()].sort((a, b) => b.amount - a.amount);
   }
 
+  function analysisCutoff() {
+    if (analysisPeriod === "year") return `${analysisYear}-12-31`;
+    const [year, month] = analysisMonth.split("-").map(Number);
+    return `${analysisMonth}-${pad(new Date(year, month, 0).getDate())}`;
+  }
+  function renderObligations() {
+    const cutoff = analysisCutoff();
+    const report = Accounting.balances(state.entries, cutoff);
+    $("#obligations-cutoff").textContent =
+      `截至 ${cutoff} 的全历史累计余额，包含本期之前未结清的往来。`;
+    const total = (claims) => sum(claims, (claim) => claim.remaining);
+    $("#obligations-summary").innerHTML = [
+      ["我尚未还清", total(report.claims.filter((c) => c.kind === "borrowed"))],
+      ["别人尚未归还", total(report.claims.filter((c) => c.kind === "lent"))],
+      ["待报销到账", total(report.reimbursements)],
+    ]
+      .map(
+        ([label, amount]) =>
+          `<div><span>${label}</span><strong>${money(amount)}</strong></div>`,
+      )
+      .join("");
+    const term = $("#obligations-search").value.trim().toLocaleLowerCase();
+    const showSettled = $("#obligations-settled").checked;
+    const matches = (claim) =>
+      (showSettled || claim.remaining > 0) &&
+      `${claim.party} ${claim.description}`.toLocaleLowerCase().includes(term);
+    const claimHTML = (claim) => {
+      const kind = {
+        borrowed: "repaid",
+        lent: "recovered",
+        reimbursable: "reimbursed",
+      }[claim.kind];
+      const action = {
+        borrowed: "记还款",
+        lent: "记收回",
+        reimbursable: "记报销",
+      }[claim.kind];
+      return `<div class="obligation-record"><div><button class="text-link" type="button" data-obligation-edit="${escapeHTML(claim.entryId)}">${escapeHTML(claim.description)}</button><small>${claim.date}${claim.credit ? " · 信用付款" : ""}${claim.party ? ` · ${escapeHTML(claim.party)}` : ""}</small></div><div class="obligation-amounts"><span>原额 <b>${money(claim.amount)}</b></span><span>${claim.kind === "reimbursable" ? "已到账" : "已结算"} <b>${money(claim.settled)}</b></span><span>未结清 <b>${money(claim.remaining)}</b></span></div>${claim.remaining > 0 ? `<button type="button" class="secondary-button" data-settle="${escapeHTML(claim.id)}" data-settle-kind="${kind}">${action}</button>` : '<span class="settled-badge">已结清</span>'}</div>${claim.settlements.length ? `<details class="settlement-history"><summary>${claim.settlements.length} 笔结算记录</summary>${claim.settlements.map((s) => `<div><button class="text-link" type="button" data-obligation-edit="${escapeHTML(s.entryId)}">${s.date} · ${escapeHTML(s.description)}</button><strong>${money(s.amount)}</strong></div>`).join("")}</details>` : ""}`;
+    };
+    for (const [kind, selector] of [
+      ["borrowed", "#payables-list"],
+      ["lent", "#receivables-list"],
+    ]) {
+      $(selector).innerHTML =
+        report.debts
+          .filter((d) => d.kind === kind && d.claims.some(matches))
+          .map(
+            (debt) =>
+              `<details class="debt-group" open><summary><strong>${escapeHTML(debt.party)}</strong><span>${kind === "borrowed" ? "我还欠" : "还欠我"} ${money(debt.remaining)}</span></summary>${debt.claims.filter(matches).map(claimHTML).join("")}</details>`,
+          )
+          .join("") || '<p class="distribution-empty">没有符合条件的往来。</p>';
+    }
+    $("#reimbursements-list").innerHTML =
+      report.reimbursements.filter(matches).map(claimHTML).join("") ||
+      '<p class="distribution-empty">没有符合条件的可报销账目。</p>';
+    const legacy = state.entries.filter(
+      (e) => e.date <= cutoff && Accounting.legacyKind(e, state.categories),
+    );
+    $("#legacy-warning").classList.toggle("hidden", !legacy.length);
+    $("#legacy-warning").innerHTML = legacy.length
+      ? `<strong>${legacy.length} 笔旧类别账目尚未补充往来信息</strong><p>已有债务 / 报销类别没有对方和关联关系，暂按原金额统计。请逐笔补充特定标签后，才会进入债务与报销余额。</p><div>${legacy.map((e) => `<button type="button" class="text-link" data-obligation-edit="${escapeHTML(e.id)}">${e.date} · ${escapeHTML(e.description)} · ${money(e.amount)}</button>`).join("")}</div>`
+      : "";
+  }
   function renderAnalysis() {
     $("#analysis-month").value = analysisMonth;
     const years = [
@@ -319,11 +395,26 @@
         button.dataset.period === analysisPeriod,
       ),
     );
-    const items = state.entries.filter((entry) =>
+    const originalItems = state.entries.filter((entry) =>
       analysisPeriod === "month"
         ? entry.date.startsWith(analysisMonth)
         : entry.date.startsWith(String(analysisYear)),
     );
+    const basis = state.analysisPreferences?.basis || "actual";
+    $("#analysis-basis").value = basis;
+    $("#analysis-basis-hint").textContent =
+      basis === "actual"
+        ? "只统计自己的消费和收入。垫付、待报销及债务本金单独跟踪；信用消费在消费当天计入。"
+        : "统计本期现金流入与流出，包含债务本金和报销到账；信用付款在还款时体现现金流出。";
+    const items = originalItems
+      .map((entry) => ({
+        ...entry,
+        amount:
+          basis === "actual"
+            ? Accounting.actualAmount(entry)
+            : Accounting.cashAmount(entry),
+      }))
+      .filter((entry) => entry.amount > 0);
     const incomes = items.filter((item) => item.type === "income");
     const expenses = items.filter((item) => item.type === "expense");
     const income = sum(incomes, (item) => item.amount);
@@ -347,11 +438,14 @@
     renderDistribution("#income-distribution", incomes, "income");
     const top = groupByCategory(expenses)[0];
     $("#analysis-note").textContent =
-      items.length === 0
+      originalItems.length === 0
         ? "这段时间还没有记录。添上几笔账目后，分析会自动出现。"
-        : top
-          ? `这段时间共记录 ${items.length} 笔账目。支出最多的是“${top.name}”，占总支出的 ${Math.round((top.amount / expense) * 100)}%。${net >= 0 ? "整体保持了正结余。" : "整体支出超过了收入。"}`
-          : `这段时间共记录 ${items.length} 笔账目，暂时没有支出。`;
+        : items.length === 0
+          ? `本期记录 ${originalItems.length} 笔账目，当前口径金额为零；债务与报销明细可在下方查看。`
+          : top
+            ? `这段时间共记录 ${items.length} 笔账目。支出最多的是“${top.name}”，占总支出的 ${Math.round((top.amount / expense) * 100)}%。${net >= 0 ? "整体保持了正结余。" : "整体支出超过了收入。"}`
+            : `这段时间共记录 ${items.length} 笔账目，暂时没有支出。`;
+    renderObligations();
   }
   function renderTrend(items) {
     const keys =
@@ -425,6 +519,12 @@
   }
 
   function renderCategories() {
+    $("#fixed-tags-list").innerHTML = Object.values(Accounting.TAGS)
+      .map(
+        (tag) =>
+          `<div><strong>${tag.name}</strong><small>${tag.claim ? tag.party : "关联原始账目，支持部分结算"}</small></div>`,
+      )
+      .join("");
     ["expense", "income"].forEach((type) => {
       const items = state.categories.filter((item) => item.type === type);
       $(`#${type}-category-count`).textContent = items.length;
@@ -585,7 +685,130 @@
   }
   let entryColor = ENTRY_COLORS[0],
     categoryColor = CATEGORY_COLORS[0];
+  let draftSpecial = [];
+  function draftClaims() {
+    return Accounting.claims(
+      state.entries.filter((e) => e.id !== $("#entry-id").value),
+    );
+  }
+  function renderSpecialRows() {
+    const type = $("#entry-type").value;
+    $("#credit-controls").classList.toggle("hidden", type !== "expense");
+    $("#entry-credit-fields").classList.toggle(
+      "hidden",
+      !$("#entry-credit-enabled").checked,
+    );
+    $("#entry-special-actions").innerHTML = Object.entries(Accounting.TAGS)
+      .filter(([, tag]) => tag.type === type)
+      .map(
+        ([kind, tag]) =>
+          `<button type="button" class="secondary-button" data-add-special="${kind}">＋ ${tag.name}</button>`,
+      )
+      .join("");
+    const claims = draftClaims();
+    $("#entry-special-rows").innerHTML = draftSpecial
+      .map((part, index) => {
+        const tag = Accounting.TAGS[part.kind];
+        const options = tag.target
+          ? claims
+              .filter(
+                (c) =>
+                  c.kind === tag.target &&
+                  (c.remaining > 0 || c.id === part.targetId),
+              )
+              .map(
+                (c) =>
+                  `<option value="${escapeHTML(c.id)}" ${c.id === part.targetId ? "selected" : ""}>${escapeHTML(c.party || "未指定单位")} · ${c.date} · ${escapeHTML(c.description)} · 待结算 ${money(c.remaining)}</option>`,
+              )
+              .join("")
+          : "";
+        return `<div class="special-row" data-special-index="${index}"><div class="special-row-head"><strong>${tag.name}</strong><button type="button" class="delete-action" data-remove-special="${index}" aria-label="移除${tag.name}明细">移除</button></div>${tag.target ? `<div class="field"><label>关联原始账目 <em>*</em><select data-special-field="targetId" aria-label="${tag.name}关联原始账目"><option value="">请选择（可跨月关联）</option>${options}</select></label></div>` : ""}<div class="field-grid"><div class="field"><label>${tag.party}<input data-special-field="party" value="${escapeHTML(part.party)}" maxlength="60" list="party-suggestions" ${tag.target && claims.find((c) => c.id === part.targetId)?.party ? "readonly" : ""} placeholder="${part.kind === "reimbursable" ? "例如：公司差旅" : "名称需与之前保持一致"}" aria-label="${tag.name}对方"></label></div><div class="field"><label>金额 <em>*</em><input data-special-field="amount" type="number" min="0.01" max="1000000000" step="0.01" value="${part.amount || ""}" aria-label="${tag.name}金额"></label></div></div></div>`;
+      })
+      .join("");
+    const parties = new Set(
+      state.entries
+        .flatMap((e) => [
+          ...(e.special || []).map((p) => p.party),
+          e.credit?.party,
+        ])
+        .filter(Boolean),
+    );
+    $("#party-suggestions").innerHTML = [...parties]
+      .sort()
+      .map((party) => `<option value="${escapeHTML(party)}"></option>`)
+      .join("");
+    renderSplitPreview();
+  }
+  function readEntrySpecial() {
+    return draftSpecial.map((part) => ({
+      ...part,
+      party: part.party.trim(),
+      amount: Number(part.amount),
+    }));
+  }
+  function draftCredit() {
+    return $("#entry-type").value === "expense" &&
+      $("#entry-credit-enabled").checked
+      ? {
+          party: $("#entry-credit-party").value.trim(),
+          amount: Number(
+            $("#entry-credit-amount").value || $("#entry-amount").value,
+          ),
+        }
+      : undefined;
+  }
+  function renderSplitPreview() {
+    const amount = numeric($("#entry-amount").value);
+    const preview = $("#entry-split-preview");
+    if (amount === null) {
+      preview.textContent = "填入总金额后，会显示自动拆分结果。";
+      return;
+    }
+    const entry = {
+      type: $("#entry-type").value,
+      amount,
+      special: readEntrySpecial(),
+      credit: draftCredit(),
+    };
+    const error =
+      Accounting.actualAmount(entry) < 0 ||
+      (entry.credit && entry.credit.amount > amount);
+    preview.classList.toggle("is-error", Boolean(error));
+    preview.innerHTML = error
+      ? "明细合计或信用付款金额超过本笔总金额，请调整。"
+      : `<strong>自动拆分 · ${entry.type === "expense" ? "支出" : "收入"} ${money(amount)}</strong><div>${Accounting.components(
+          entry,
+        )
+          .map(
+            (part) =>
+              `<span>${escapeHTML(part.name)}${part.party ? ` · ${escapeHTML(part.party)}` : ""}<b>${money(part.amount)}</b></span>`,
+          )
+          .join(
+            "",
+          )}</div><small>本笔现金${entry.type === "expense" ? "流出" : "流入"} ${money(Accounting.cashAmount(entry))}${entry.credit ? "；信用付款是资金来源，单独增加欠款。" : ""}</small>`;
+  }
+  function addSpecial(kind, claim = null) {
+    if (draftSpecial.length >= 50) return toast("每笔最多添加 50 项明细。");
+    const used = sum(draftSpecial, (p) => Number(p.amount) || 0);
+    draftSpecial.push({
+      id: uid(),
+      kind,
+      party: claim?.party || "",
+      amount:
+        claim?.remaining ??
+        Math.max(0, round(Number($("#entry-amount").value || 0) - used)),
+      ...(Accounting.TAGS[kind].target ? { targetId: claim?.id || "" } : {}),
+    });
+    renderSpecialRows();
+    $("#entry-special-rows")
+      .lastElementChild?.querySelector("select, input")
+      ?.focus();
+  }
   function setEntryType(type) {
+    if ($("#entry-type").value !== type) {
+      draftSpecial = [];
+      $("#entry-credit-enabled").checked = false;
+    }
     $("#entry-type").value = type;
     $$("[data-entry-type]").forEach((button) =>
       button.classList.toggle("active", button.dataset.entryType === type),
@@ -597,10 +820,12 @@
           `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)}</option>`,
       )
       .join("");
+    renderSpecialRows();
   }
   function openEntry(id = null) {
     const item = state.entries.find((entry) => entry.id === id);
     $("#entry-form").reset();
+    draftSpecial = [];
     $("#entry-id").value = item?.id || "";
     $("#entry-modal-title").textContent = item ? "编辑账目" : "记一笔";
     setEntryType(item?.type || "expense");
@@ -609,6 +834,20 @@
     $("#entry-category").value =
       item?.categoryId || $("#entry-category").options[0]?.value || "";
     $("#entry-description").value = item?.description || "";
+    draftSpecial = structuredClone(item?.special || []);
+    $("#entry-credit-enabled").checked = Boolean(item?.credit);
+    $("#entry-credit-party").value = item?.credit?.party || "";
+    $("#entry-credit-amount").value = item?.credit?.amount ?? "";
+    const legacy = item && Accounting.legacyKind(item, state.categories);
+    if (legacy)
+      draftSpecial.push({
+        id: uid(),
+        kind: legacy,
+        party: "",
+        amount: item.amount,
+        ...(Accounting.TAGS[legacy].target ? { targetId: "" } : {}),
+      });
+    renderSpecialRows();
     entryColor = item?.color || ENTRY_COLORS[0];
     renderColors("#entry-colors", ENTRY_COLORS, entryColor, updateEntryColors);
     showModal("#entry-modal");
@@ -753,9 +992,24 @@
       );
       confirmDelete(
         `删除“${item.description}”这笔账目？此操作无法撤销。`,
-        () => {
-          state.entries = state.entries.filter((entry) => entry.id !== item.id);
-          save();
+        async () => {
+          const candidate = state.entries.filter(
+            (entry) => entry.id !== item.id,
+          );
+          try {
+            Accounting.validate(candidate);
+          } catch (error) {
+            return toast(error.message);
+          }
+          const previous = state.entries;
+          state.entries = candidate;
+          try {
+            await save();
+          } catch (error) {
+            state.entries = previous;
+            render();
+            return;
+          }
           render();
           toast("账目已删除");
         },
@@ -767,7 +1021,62 @@
       setEntryType(button.dataset.entryType),
     ),
   );
-  $("#entry-form").addEventListener("submit", (event) => {
+  $("#entry-special-actions").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-add-special]");
+    if (button) addSpecial(button.dataset.addSpecial);
+  });
+  $("#entry-special-rows").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-special]");
+    if (button) {
+      draftSpecial.splice(Number(button.dataset.removeSpecial), 1);
+      renderSpecialRows();
+    }
+  });
+  $("#entry-special-rows").addEventListener("input", (event) => {
+    const field = event.target.dataset.specialField;
+    if (!field || field === "targetId") return;
+    const index = Number(
+      event.target.closest("[data-special-index]").dataset.specialIndex,
+    );
+    draftSpecial[index][field] = event.target.value;
+    renderSplitPreview();
+  });
+  $("#entry-special-rows").addEventListener("change", (event) => {
+    if (event.target.dataset.specialField !== "targetId") return;
+    const index = Number(
+      event.target.closest("[data-special-index]").dataset.specialIndex,
+    );
+    const part = draftSpecial[index];
+    part.targetId = event.target.value;
+    const claim = draftClaims().find((c) => c.id === part.targetId);
+    part.party = claim?.party || "";
+    const available =
+      Math.max(
+        0,
+        cents($("#entry-amount").value) -
+          draftSpecial.reduce(
+            (n, p, i) => n + (i === index ? 0 : cents(p.amount)),
+            0,
+          ),
+      ) / 100;
+    part.amount = claim
+      ? Math.min(claim.remaining, available || claim.remaining)
+      : 0;
+    renderSpecialRows();
+  });
+  $("#entry-credit-enabled").addEventListener("change", renderSpecialRows);
+  ["#entry-amount", "#entry-credit-party", "#entry-credit-amount"].forEach(
+    (selector) => $(selector).addEventListener("input", renderSplitPreview),
+  );
+  $("#entry-category").addEventListener("change", () => {
+    if (draftSpecial.length) return;
+    const kind = Accounting.legacyKind(
+      { categoryId: $("#entry-category").value, type: $("#entry-type").value },
+      state.categories,
+    );
+    if (kind) addSpecial(kind);
+  });
+  $("#entry-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const amount = numeric($("#entry-amount").value);
     if (amount === null) return toast("请输入大于 0 且最多两位小数的金额。");
@@ -784,15 +1093,72 @@
       description: $("#entry-description").value.trim(),
       color: entryColor,
     };
+    if (draftSpecial.length) entry.special = readEntrySpecial();
+    if (draftCredit()) entry.credit = draftCredit();
     if (!entry.description) return toast("请填写事项描述。");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date))
+      return toast("请选择有效日期。");
     const index = state.entries.findIndex((item) => item.id === entry.id);
-    if (index >= 0) state.entries[index] = entry;
-    else state.entries.push(entry);
+    const candidate = state.entries
+      .filter((item) => item.id !== entry.id)
+      .concat(entry);
+    try {
+      Accounting.validate(candidate);
+    } catch (error) {
+      return toast(error.message);
+    }
+    const previous = state.entries;
+    state.entries = candidate;
+    const submit = $("#entry-form button[type=submit]");
+    submit.disabled = true;
+    try {
+      await save();
+    } catch (error) {
+      state.entries = previous;
+      render();
+      return;
+    } finally {
+      submit.disabled = false;
+    }
     ledgerMonth = entry.date.slice(0, 7);
-    save();
     render();
     closeModals();
     toast(index >= 0 ? "账目已更新" : "账目已保存");
+  });
+  $("#analysis-basis").addEventListener("change", () => {
+    excludedCategoryIds();
+    state.analysisPreferences.basis = $("#analysis-basis").value;
+    save();
+    renderAnalysis();
+  });
+  $("#obligations-search").addEventListener("input", renderObligations);
+  $("#obligations-settled").addEventListener("change", renderObligations);
+  $(".obligations-panel").addEventListener("click", (event) => {
+    const edit = event.target.closest("[data-obligation-edit]");
+    if (edit) return openEntry(edit.dataset.obligationEdit);
+    const button = event.target.closest("[data-settle]");
+    if (!button) return;
+    const claim = Accounting.claims(state.entries).find(
+      (c) => c.id === button.dataset.settle,
+    );
+    if (!claim || claim.remaining <= 0) return toast("这笔往来已结清。");
+    const kind = button.dataset.settleKind;
+    openEntry();
+    setEntryType(Accounting.TAGS[kind].type);
+    const preferred = state.categories.find(
+      (c) =>
+        c.name === Accounting.TAGS[kind].name &&
+        c.type === Accounting.TAGS[kind].type,
+    );
+    if (preferred) $("#entry-category").value = preferred.id;
+    $("#entry-date").value = claim.date > today() ? claim.date : today();
+    $("#entry-amount").value = claim.remaining;
+    $("#entry-description").value =
+      `${Accounting.TAGS[kind].name} · ${claim.party || claim.description}`.slice(
+        0,
+        80,
+      );
+    addSpecial(kind, claim);
   });
   $$("[data-period]").forEach((button) =>
     button.addEventListener("click", () => {

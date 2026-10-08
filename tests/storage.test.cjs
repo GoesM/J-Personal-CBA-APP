@@ -34,6 +34,54 @@ const isolated = async (t, prefix) => {
   return { temp, root: path.join(temp, "ledger") };
 };
 
+test("往来拆分和跨日结算随账本保存、导出、导入；关联校验先于写盘", async (t) => {
+  const { root, temp } = await isolated(t, "cba-obligations-");
+  const state = baseline();
+  state.categories.push({
+    id: "income",
+    name: "收入",
+    type: "income",
+    color: "#87ad8f",
+    icon: "收",
+  });
+  state.entries[0].special = [
+    { id: "advance", kind: "lent", party: "A", amount: 10 },
+  ];
+  state.entries[0].credit = { party: "花呗", amount: 20 };
+  state.entries.push({
+    id: "receipt",
+    type: "income",
+    date: "2026-09-02",
+    categoryId: "income",
+    description: "A部分归还",
+    amount: 5,
+    color: "#e7f0e6",
+    special: [
+      {
+        id: "settle",
+        kind: "recovered",
+        party: "A",
+        amount: 5,
+        targetId: "advance",
+      },
+    ],
+  });
+  state.analysisPreferences = { excludedCategoryIds: [], basis: "actual" };
+  const store = new LedgerStore(root);
+  await store.save(state);
+  assert.deepEqual((await new LedgerStore(root).load()).entries, state.entries);
+  const backup = path.join(temp, "export.json");
+  await store.exportTo(backup);
+  const imported = new LedgerStore(path.join(temp, "restored"));
+  await imported.importFrom(backup);
+  assert.deepEqual((await imported.load()).entries, state.entries);
+  const invalid = structuredClone(state);
+  invalid.entries[1].special[0].amount = 15;
+  invalid.entries[1].amount = 15;
+  await assert.rejects(store.save(invalid), /累计/);
+  assert.deepEqual((await store.load()).entries, state.entries);
+});
+
 test("按日拆分，只改动相关日期并保留旧版", async (t) => {
   const { root } = await isolated(t, "cba-store-test-");
   const store = new LedgerStore(root);

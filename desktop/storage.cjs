@@ -2,6 +2,7 @@ const fs = require("node:fs/promises");
 const { constants } = require("node:fs");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
+const Accounting = require("../src/accounting.js");
 
 const MAX_META_BYTES = 10 * 1024 * 1024;
 const MAX_DAY_BYTES = 1024 * 1024;
@@ -82,6 +83,11 @@ function validateState(state) {
     state.analysisPreferences = { excludedCategoryIds: [] };
   const excluded = state.analysisPreferences?.excludedCategoryIds;
   assert(
+    state.analysisPreferences?.basis === undefined ||
+      ["actual", "cash"].includes(state.analysisPreferences.basis),
+    "收支分析口径无效",
+  );
+  assert(
     Array.isArray(excluded) &&
       excluded.length <= state.categories.length &&
       excluded.every((id) => typeof id === "string" && categories.has(id)) &&
@@ -107,6 +113,7 @@ function validateState(state) {
       "账目类别不存在或类型不匹配",
     );
   }
+  Accounting.validate(state.entries);
   const finance = state.finance;
   assert(
     finance &&

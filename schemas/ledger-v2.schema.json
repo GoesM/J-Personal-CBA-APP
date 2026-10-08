@@ -81,6 +81,7 @@
       "type": "object",
       "required": ["excludedCategoryIds"],
       "properties": {
+        "basis": { "enum": ["actual", "cash"] },
         "excludedCategoryIds": {
           "type": "array",
           "maxItems": 1000,
@@ -118,7 +119,59 @@
         "categoryId": { "$ref": "#/$defs/id" },
         "description": { "type": "string", "minLength": 1, "maxLength": 80 },
         "amount": { "$ref": "#/$defs/positiveAmount" },
-        "color": { "$ref": "#/$defs/color" }
+        "color": { "$ref": "#/$defs/color" },
+        "special": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/specialPart" }
+        },
+        "credit": { "$ref": "#/$defs/creditPayment" }
+      }
+    },
+    "specialPart": {
+      "type": "object",
+      "required": ["id", "kind", "party", "amount"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": {
+          "enum": [
+            "borrowed",
+            "repaid",
+            "lent",
+            "recovered",
+            "reimbursable",
+            "reimbursed"
+          ]
+        },
+        "party": { "type": "string", "maxLength": 60 },
+        "amount": { "$ref": "#/$defs/positiveAmount" },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 87 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": { "enum": ["repaid", "recovered", "reimbursed"] }
+            }
+          },
+          "then": { "required": ["targetId"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": { "enum": ["borrowed", "repaid", "lent", "recovered"] }
+            }
+          },
+          "then": { "properties": { "party": { "minLength": 1 } } }
+        }
+      ]
+    },
+    "creditPayment": {
+      "type": "object",
+      "required": ["party", "amount"],
+      "properties": {
+        "party": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "amount": { "$ref": "#/$defs/positiveAmount" }
       }
     },
     "transfer": {
