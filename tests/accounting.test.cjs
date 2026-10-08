@@ -209,3 +209,60 @@ test("分计算保留小数精度，旧账目不推断债务", () => {
     "lent",
   );
 });
+
+test("删除重复的借入账目时，将同一贷款方的还款转到已有信用消费", () => {
+  const credit = entry("purchase", "expense", 1200, [], "2026-09-15");
+  credit.credit = { party: "花呗", amount: 1200 };
+  const duplicate = entry(
+    "duplicate",
+    "income",
+    1000,
+    [part("loan", "borrowed", "花呗", 1000)],
+    "2026-09-30",
+  );
+  const repayment = entry(
+    "repayment",
+    "expense",
+    200,
+    [part("settled", "repaid", "花呗", 200, "loan")],
+    "2026-10-01",
+  );
+  const original = [credit, duplicate, repayment];
+  A.validate(original);
+  const plan = A.planDeletion(original, "duplicate");
+  assert.deepEqual(plan.blockers, []);
+  assert.equal(plan.transfers.length, 1);
+  assert.equal(plan.entries.length, 2);
+  assert.equal(plan.entries[1].special[0].targetId, "purchase:credit");
+  assert.equal(repayment.special[0].targetId, "loan");
+  A.validate(plan.entries);
+  assert.equal(
+    A.balances(plan.entries).debts.find((d) => d.party === "花呗").remaining,
+    1000,
+  );
+});
+
+test("无可用同方欠款或属于指定垫付时，删除计划给出关联账目并保持原账不变", () => {
+  const loan = entry("loan", "income", 100, [
+    part("borrow", "borrowed", "A", 100),
+  ]);
+  const repayment = entry("repay", "expense", 50, [
+    part("paid", "repaid", "A", 50, "borrow"),
+  ]);
+  const blocked = A.planDeletion([loan, repayment], "loan");
+  assert.deepEqual(
+    blocked.blockers.map((item) => item.description),
+    ["repay"],
+  );
+  assert.equal(repayment.special[0].targetId, "borrow");
+  const advanced = entry("meal", "expense", 100, [
+    part("advance", "lent", "B", 50),
+  ]);
+  const returned = entry("returned", "income", 50, [
+    part("received", "recovered", "B", 50, "advance"),
+  ]);
+  assert.equal(
+    A.planDeletion([advanced, returned], "meal").blockers[0].description,
+    "returned",
+  );
+});

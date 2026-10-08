@@ -244,6 +244,68 @@
       claims: all,
     };
   }
+  function planDeletion(entries, entryId) {
+    const removed = entries.find((entry) => entry.id === entryId);
+    if (!removed) throw new Error("要删除的账目不存在。");
+    const remaining = entries
+      .filter((entry) => entry.id !== entryId)
+      .map((entry) => ({
+        ...entry,
+        ...(entry.special
+          ? { special: entry.special.map((part) => ({ ...part })) }
+          : {}),
+      }));
+    const originalClaims = new Map(
+      claims(entries)
+        .filter((claim) => claim.entryId === entryId)
+        .map((claim) => [claim.id, claim]),
+    );
+    const transfers = [];
+    const blockers = [];
+    for (const entry of remaining
+      .filter((item) =>
+        item.special?.some((part) => originalClaims.has(part.targetId)),
+      )
+      .sort(
+        (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
+      )) {
+      for (const part of entry.special) {
+        const oldClaim = originalClaims.get(part.targetId);
+        if (!oldClaim) continue;
+        // Repayments to the same lender are fungible. Reimbursements and personal
+        // advances identify a specific underlying expense, so require review.
+        const replacement =
+          part.kind === "repaid" && oldClaim.kind === "borrowed"
+            ? claims(remaining).find(
+                (claim) =>
+                  claim.kind === "borrowed" &&
+                  claim.party === part.party &&
+                  claim.entryId !== entry.id &&
+                  claim.date <= entry.date &&
+                  cents(claim.remaining) >= cents(part.amount),
+              )
+            : null;
+        if (!replacement) {
+          blockers.push({
+            entryId: entry.id,
+            description: entry.description,
+            kind: part.kind,
+          });
+          continue;
+        }
+        part.targetId = replacement.id;
+        transfers.push({
+          entryId: entry.id,
+          description: entry.description,
+          amount: part.amount,
+          targetEntryId: replacement.entryId,
+          targetDescription: replacement.description,
+        });
+      }
+    }
+    if (!blockers.length) validate(remaining);
+    return { entries: remaining, transfers, blockers };
+  }
   function legacyKind(entry, categories) {
     if (parts(entry).length || entry.credit) return null;
     const category = categories.find((c) => c.id === entry.categoryId);
@@ -263,6 +325,7 @@
     validate,
     components,
     balances,
+    planDeletion,
     legacyKind,
   };
 });

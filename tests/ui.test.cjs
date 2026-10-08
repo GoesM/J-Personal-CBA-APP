@@ -110,7 +110,7 @@ test("录入多人垫付与花呗、从分析页部分收回、关联报销、�
   $("#confirm-delete").click();
   await tick();
   assert.equal(saved.entries.length, 4);
-  assert($("#toast").textContent.includes("关联记录"));
+  assert($("#toast").textContent.includes("关联了“"));
   const originalId = saved.entries[0].id;
   $(`[data-entry-edit="${originalId}"]`).click();
   input($('[data-special-index="0"] [data-special-field="amount"]'), "5");
@@ -124,6 +124,90 @@ test("录入多人垫付与花呗、从分析页部分收回、关联报销、�
   assert.equal(edited.special[0].id, firstClaim);
   assert.equal(edited.credit.amount, 100);
   assert($("#receivables-list").textContent.includes("15.00"));
+  dom.window.close();
+});
+
+test("删除重复花呗借入时在确认框告知还款转关联并一起保存", async () => {
+  const dom = new JSDOM(html, {
+    url: "http://localhost/",
+    runScripts: "dangerously",
+  });
+  const { window } = dom;
+  const $ = (selector) => window.document.querySelector(selector);
+  const entry = (id, type, amount, date, special = []) => ({
+    id,
+    type,
+    amount,
+    date,
+    categoryId: type,
+    description: id,
+    color: "#e7f0e6",
+    special,
+  });
+  const credit = entry("credit", "expense", 1200, "2026-09-15");
+  credit.credit = { party: "花呗", amount: 1200 };
+  const duplicate = entry("duplicate", "income", 1000, "2026-09-30", [
+    { id: "loan", kind: "borrowed", party: "花呗", amount: 1000 },
+  ]);
+  const repayment = entry("repayment", "expense", 200, "2026-09-30", [
+    {
+      id: "paid",
+      kind: "repaid",
+      party: "花呗",
+      amount: 200,
+      targetId: "loan",
+    },
+  ]);
+  let saved = {
+    schemaVersion: 2,
+    categories: ["expense", "income"].map((type) => ({
+      id: type,
+      type,
+      name: type,
+      color: "#e7f0e6",
+      icon: "◌",
+    })),
+    entries: [credit, duplicate, repayment],
+    finance: {
+      initialCapital: 0,
+      initialDate: "2026-01-01",
+      transfers: [],
+      projects: [],
+    },
+    analysisPreferences: { excludedCategoryIds: [] },
+  };
+  window.scrollTo = () => {};
+  window.structuredClone = structuredClone;
+  window.ledgerApi = {
+    load: async () => structuredClone(saved),
+    save: async (state) => {
+      validateState(state);
+      saved = structuredClone(state);
+    },
+    info: async () => ({
+      dataPath: "D:\\ledger",
+      backupPath: "D:\\ledger\\backups",
+    }),
+    onBeforeClose: () => {},
+    closeReady: () => {},
+  };
+  window.eval(accountingScript);
+  window.eval(script);
+  await tick();
+  $("#ledger-month").value = "2026-09";
+  $("#ledger-month").dispatchEvent(
+    new window.Event("change", { bubbles: true }),
+  );
+  $('[data-entry-delete="duplicate"]').click();
+  assert($("#confirm-copy").textContent.includes("还款将转关联"));
+  $("#confirm-delete").click();
+  await tick();
+  assert.equal(saved.entries.length, 2);
+  assert.equal(
+    saved.entries.find((item) => item.id === "repayment").special[0].targetId,
+    "credit:credit",
+  );
+  assert($("#toast").textContent.includes("已转关联"));
   dom.window.close();
 });
 

@@ -990,19 +990,32 @@
       const item = state.entries.find(
         (entry) => entry.id === remove.dataset.entryDelete,
       );
+      if (!item) return;
+      const deletion = Accounting.planDeletion(state.entries, item.id);
+      if (deletion.blockers.length) {
+        const linked = [
+          ...new Set(deletion.blockers.map((part) => part.description)),
+        ];
+        return toast(
+          `“${item.description}”关联了“${linked[0]}”${linked.length > 1 ? `等 ${linked.length} 笔` : ""}结算。请先编辑或删除关联账目，再删除本笔。`,
+        );
+      }
+      const transferNotice = deletion.transfers.length
+        ? `其中 ${deletion.transfers.length} 笔还款将转关联到同一债权方较早的未结清账目：${deletion.transfers.map((part) => `“${part.description}”→“${part.targetDescription}”`).join("；")}。`
+        : "";
       confirmDelete(
-        `删除“${item.description}”这笔账目？此操作无法撤销。`,
+        `删除“${item.description}”这笔账目？${transferNotice}此操作无法撤销。`,
         async () => {
-          const candidate = state.entries.filter(
-            (entry) => entry.id !== item.id,
-          );
+          const next = Accounting.planDeletion(state.entries, item.id);
+          if (next.blockers.length)
+            return toast("关联账目已变化，请先处理关联结算后重试。");
           try {
-            Accounting.validate(candidate);
+            Accounting.validate(next.entries);
           } catch (error) {
             return toast(error.message);
           }
           const previous = state.entries;
-          state.entries = candidate;
+          state.entries = next.entries;
           try {
             await save();
           } catch (error) {
@@ -1011,7 +1024,11 @@
             return;
           }
           render();
-          toast("账目已删除");
+          toast(
+            next.transfers.length
+              ? `账目已删除，${next.transfers.length} 笔还款已转关联。`
+              : "账目已删除",
+          );
         },
       );
     }
