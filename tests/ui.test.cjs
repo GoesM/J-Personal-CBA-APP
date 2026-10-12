@@ -13,6 +13,124 @@ const accountingScript = fs.readFileSync(
 const { validateState } = require("../desktop/storage.cjs");
 const tick = () => new Promise((resolve) => setTimeout(resolve, 10));
 
+test("已赎回项目自动显示单利年化与实际持有天数，包含盈亏、闰年和同日赎回", async () => {
+  const project = (id, investedDate, redeemedDate, redeemedAmount) => ({
+    id,
+    name: id,
+    form: "定期",
+    invested: 1000,
+    investedDate,
+    redeemedDate,
+    redeemedAmount,
+    currentValue: redeemedAmount,
+    maturityDate: "",
+    annualRate: null,
+    status: "redeemed",
+  });
+  let state = {
+    schemaVersion: 2,
+    categories: [],
+    entries: [],
+    analysisPreferences: { excludedCategoryIds: [] },
+    finance: {
+      initialCapital: 10000,
+      initialDate: "2024-01-01",
+      transfers: [],
+      projects: [
+        project("盈利一年", "2025-10-01", "2026-10-01", 1100),
+        project("持有180天", "2026-04-04", "2026-10-01", 1050),
+        project("亏损一年", "2025-10-01", "2026-10-01", 900),
+        project("保本一年", "2025-10-01", "2026-10-01", 1000),
+        project("跨闰年", "2024-01-01", "2025-01-01", 1100),
+        project("同日赎回", "2026-10-01", "2026-10-01", 1001),
+        project("全额亏损", "2025-10-01", "2026-10-01", 0),
+        {
+          ...project("赎回操作", "2025-10-01", "2026-10-01", 1100),
+          status: "active",
+          annualRate: 20,
+        },
+      ],
+    },
+  };
+  validateState(state);
+  const dom = new JSDOM(html, {
+    url: "http://localhost/",
+    runScripts: "dangerously",
+  });
+  const { window } = dom;
+  const $ = (s) => window.document.querySelector(s);
+  let saves = 0;
+  window.scrollTo = () => {};
+  window.structuredClone = structuredClone;
+  window.ledgerApi = {
+    load: async () => structuredClone(state),
+    save: async (next) => {
+      validateState(next);
+      state = structuredClone(next);
+      saves++;
+    },
+    info: async () => ({
+      dataPath: "D:\\test-ledger",
+      backupPath: "D:\\test-ledger\\backups",
+    }),
+    onBeforeClose: () => {},
+    closeReady: () => {},
+  };
+  window.eval(accountingScript);
+  window.eval(script);
+  await tick();
+  $('[data-page="finance"]').click();
+  assert.equal($(".project-realized-yield"), null);
+  $('[data-project-filter="redeemed"]').click();
+  const cards = () => [...window.document.querySelectorAll(".project-card")];
+  for (const [name, days, rate] of [
+    ["盈利一年", 365, "10.00%"],
+    ["持有180天", 180, "10.14%"],
+    ["亏损一年", 365, "-10.00%"],
+    ["保本一年", 365, "0.00%"],
+    ["跨闰年", 366, "9.97%"],
+    ["全额亏损", 365, "-100.00%"],
+  ]) {
+    const card = cards().find(
+      (c) => c.querySelector(".project-title strong").textContent === name,
+    );
+    assert.equal(
+      card.querySelector(".project-realized-yield strong").textContent,
+      rate,
+    );
+    assert(card.textContent.includes(`持有 ${days} 天`));
+  }
+  const sameDay = cards().find((c) => c.textContent.includes("同日赎回"));
+  assert.equal(
+    sameDay.querySelector(".project-realized-yield strong").textContent,
+    "无法计算",
+  );
+  assert(sameDay.textContent.includes("持有不足 1 天"));
+  assert.equal(saves, 0, "查看历史项目只计算显示，不改写账本");
+  $('[data-project-filter="active"]').click();
+  $('[data-project-redeem="赎回操作"]').click();
+  $("#redeem-date").value = "2026-10-01";
+  $("#redeem-amount").value = "1100";
+  $("#redeem-form").dispatchEvent(
+    new window.Event("submit", { bubbles: true, cancelable: true }),
+  );
+  await tick();
+  $('[data-project-filter="redeemed"]').click();
+  const redeemed = cards().find(
+    (c) => c.querySelector(".project-title strong").textContent === "赎回操作",
+  );
+  assert(redeemed.textContent.includes("参考年化 20%"));
+  assert.equal(
+    redeemed.querySelector(".project-realized-yield strong").textContent,
+    "10.00%",
+  );
+  assert.equal(
+    state.finance.projects.find((p) => p.id === "赎回操作").annualRate,
+    20,
+  );
+  dom.window.close();
+});
+
 test("录入多人垫付与花呗、从分析页部分收回、关联报销、阻止破坏关联", async () => {
   const dom = new JSDOM(html, {
     url: "http://localhost/",

@@ -62,6 +62,8 @@ ledger/
 
 `finance` 包含 `initialCapital`、`initialDate`、`transfers[]`、`projects[]`。划转记录有 `id`、`type`（`deposit`／`withdraw`）、`date`、`amount`、`note`。项目有 `id`、`name`、`form`、`investedDate`、`invested`、`maturityDate`、`annualRate`、`currentValue`、`status`；已赎回项目还需要 `redeemedDate` 与 `redeemedAmount`。参考年化与预计到期日只供记录，不自动计算收益或赎回。当前一个项目只支持一次投入和一次完整赎回。
 
+自 v0.4.2 起，已赎回项目的实际年化在显示时从本金、到账与日期推导，不新增储存字段，也不覆盖 `annualRate` 参考年化。采用 365 天单利：`(redeemedAmount - invested) / invested * 365 / 持有天数 * 100%`，持有天数按两日期的实际间隔计算，同日赎回不计算；已有赎回记录自动适用。
+
 ### `entries/YYYY/YYYY-MM-DD.json`
 
 只有存在账目的日期才生成文件。文件名、`date` 和其中每笔账目的 `date` 必须相同：

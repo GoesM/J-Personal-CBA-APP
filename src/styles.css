@@ -1986,6 +1986,31 @@ p {
 .project-numbers strong.negative {
   color: #c47765;
 }
+.project-realized-yield {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  margin-bottom: 13px;
+  border-radius: 8px;
+  background: #f3f7f0;
+  font-size: 11px;
+  color: #81907b;
+}
+.project-realized-yield strong {
+  font-size: 15px;
+}
+.project-realized-yield .positive {
+  color: #578b65;
+}
+.project-realized-yield .negative {
+  color: #c47765;
+}
+.project-realized-yield small {
+  margin-left: auto;
+  font-size: 10px;
+}
 .project-meta {
   border-top: 1px solid #f0f2ef;
   padding-top: 12px;

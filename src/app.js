@@ -607,6 +607,21 @@
       active,
     };
   }
+  function renderRealizedYield(project) {
+    const days =
+      (Date.parse(`${project.redeemedDate}T00:00:00Z`) -
+        Date.parse(`${project.investedDate}T00:00:00Z`)) /
+      86400000;
+    const rate =
+      days > 0
+        ? ((((cents(project.redeemedAmount) - cents(project.invested)) /
+            cents(project.invested)) *
+            365) /
+            days) *
+          100
+        : null;
+    return `<div class="project-realized-yield" title="实际年化（单利）＝（实际到账－本金）÷本金×365÷持有天数；按投入日到赎回日的实际日期间隔计算。"><span>实际年化（单利）</span><strong class="${rate !== null && rate < 0 ? "negative" : "positive"}">${rate === null ? "无法计算" : `${round(rate).toFixed(2)}%`}</strong><small>${days === 0 ? "同日赎回，持有不足 1 天" : `持有 ${days} 天`}</small></div>`;
+  }
   function renderFinance() {
     const stats = financeStats(),
       finance = state.finance;
@@ -640,7 +655,7 @@
             const gain = round(value - project.invested);
             const matured =
               active && project.maturityDate && project.maturityDate <= today();
-            return `<article class="project-card"><div class="project-card-top"><div class="project-mark">◇</div><div class="project-title"><strong>${escapeHTML(project.name)}</strong><span>${escapeHTML(project.form)}${project.annualRate !== null ? ` · 参考年化 ${escapeHTML(project.annualRate)}%` : ""}</span></div><span class="project-status ${active ? (matured ? "matured" : "") : "redeemed"}">${active ? (matured ? "已到期" : "持有中") : "已赎回"}</span></div><div class="project-numbers"><div><span>投入本金</span><strong>${money(project.invested)}</strong></div><div><span>${active ? "当前价值" : "实际到账"}</span><strong>${money(value)}</strong></div><div><span>${active ? "浮动盈亏" : "已实现盈亏"}</span><strong class="${gain >= 0 ? "positive" : "negative"}">${signedMoney(gain)}</strong></div></div><div class="project-meta"><span>投入 ${formatDate(project.investedDate)} · ${active ? (project.maturityDate ? `预计到期 ${formatDate(project.maturityDate)}` : "无固定到期日") : `赎回 ${formatDate(project.redeemedDate)}`}</span>${active ? `<div class="project-actions"><button type="button" data-project-edit="${escapeHTML(project.id)}">更新 / 编辑</button><button type="button" data-project-redeem="${escapeHTML(project.id)}">赎回</button></div>` : ""}</div></article>`;
+            return `<article class="project-card"><div class="project-card-top"><div class="project-mark">◇</div><div class="project-title"><strong>${escapeHTML(project.name)}</strong><span>${escapeHTML(project.form)}${project.annualRate !== null ? ` · 参考年化 ${escapeHTML(project.annualRate)}%` : ""}</span></div><span class="project-status ${active ? (matured ? "matured" : "") : "redeemed"}">${active ? (matured ? "已到期" : "持有中") : "已赎回"}</span></div><div class="project-numbers"><div><span>投入本金</span><strong>${money(project.invested)}</strong></div><div><span>${active ? "当前价值" : "实际到账"}</span><strong>${money(value)}</strong></div><div><span>${active ? "浮动盈亏" : "已实现盈亏"}</span><strong class="${gain >= 0 ? "positive" : "negative"}">${signedMoney(gain)}</strong></div></div>${active ? "" : renderRealizedYield(project)}<div class="project-meta"><span>投入 ${formatDate(project.investedDate)} · ${active ? (project.maturityDate ? `预计到期 ${formatDate(project.maturityDate)}` : "无固定到期日") : `赎回 ${formatDate(project.redeemedDate)}`}</span>${active ? `<div class="project-actions"><button type="button" data-project-edit="${escapeHTML(project.id)}">更新 / 编辑</button><button type="button" data-project-redeem="${escapeHTML(project.id)}">赎回</button></div>` : ""}</div></article>`;
           })
           .join("")
       : `<div class="empty"><div><div class="empty-symbol">◇</div><strong>${projectFilter === "active" ? "暂无在投项目" : "暂无赎回记录"}</strong>${projectFilter === "active" ? "先从资金池投入一笔试试。" : "项目赎回后会显示在这里。"}</div></div>`;
