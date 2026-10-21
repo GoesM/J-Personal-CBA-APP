@@ -19,6 +19,8 @@
 
 ## 本地开发
 
+开发环境需要 Windows、Node.js 24+ 和 npm。客户端使用者直接下载 Windows 发行包即可，无需配置开发环境。
+
 ```powershell
 npm ci
 npm test
