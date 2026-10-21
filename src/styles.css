@@ -2251,3 +2251,51 @@ p {
     min-height: 190px;
   }
 }
+/* MBTI appearance picker */
+.character-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.character-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: #f6f5f1;
+  color: #34483b;
+  cursor: pointer;
+  font: inherit;
+}
+.character-option img {
+  width: 80px;
+  height: 80px;
+  max-width: 100%;
+  object-fit: contain;
+}
+.character-option[aria-pressed="true"] {
+  border-color: #537d60;
+  background: #e7f0e6;
+}
+.character-option:focus-visible {
+  outline: 3px solid #537d60;
+  outline-offset: 3px;
+}
+.character-option:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+#app-character {
+  object-fit: contain;
+  background: transparent;
+  border-radius: 0;
+}
+@media (max-width: 600px) {
+  .character-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

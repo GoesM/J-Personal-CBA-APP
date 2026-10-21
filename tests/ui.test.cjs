@@ -13,6 +13,37 @@ const accountingScript = fs.readFileSync(
 const { validateState } = require("../desktop/storage.cjs");
 const tick = () => new Promise((resolve) => setTimeout(resolve, 10));
 
+test("形象选择立即更新且记忆，保存失败保持原形象", async () => {
+  const dom = new JSDOM(html, {
+    url: "http://localhost/",
+    runScripts: "dangerously",
+  });
+  const { window } = dom;
+  window.scrollTo = () => {};
+  window.structuredClone = structuredClone;
+  window.eval(accountingScript);
+  window.eval(script);
+  await tick();
+  const $ = (s) => window.document.querySelector(s);
+  assert.equal(window.document.querySelectorAll(".character-option").length, 8);
+  $('[data-type="ENFJ"]').click();
+  await tick();
+  assert.equal(window.localStorage.getItem("shiguang-appearance"), "ENFJ");
+  assert.match($("#app-character").src, /ENFJ/);
+  assert.equal($('[data-type="ENFJ"]').getAttribute("aria-pressed"), "true");
+  window.ledgerApi = {
+    setAppearance: async () => {
+      throw new Error("disk full");
+    },
+  };
+  $('[data-type="ISTJ"]').click();
+  await tick();
+  assert.match($("#app-character").src, /ENFJ/);
+  assert.match($("#character-status").textContent, /保存失败/);
+  assert.equal($('[data-type="ISTJ"]').disabled, false);
+  dom.window.close();
+});
+
 test("已赎回项目自动显示单利年化与实际持有天数，包含盈亏、闰年和同日赎回", async () => {
   const project = (id, investedDate, redeemedDate, redeemedAmount) => ({
     id,

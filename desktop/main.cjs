@@ -10,6 +10,9 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { LedgerLocation } = require("./location.cjs");
+const { Appearance } = require("./appearance.cjs");
+let appearance;
+let appearanceQueue = Promise.resolve();
 
 const smoke = process.argv.includes("--smoke-test");
 let window,
@@ -19,6 +22,12 @@ let window,
   closeRequested = false;
 let writeQueue = Promise.resolve();
 let smokeRoot;
+if (smoke) {
+  smokeRoot = require("node:fs").mkdtempSync(
+    path.join(os.tmpdir(), "shiguang-smoke-"),
+  );
+  app.setPath("userData", smokeRoot);
+}
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else
@@ -37,6 +46,43 @@ function authorized(event) {
 ipcMain.handle("ledger", async (event, method, value) => {
   authorized(event);
   switch (method) {
+    case "getAppearance":
+      return appearance.type;
+    case "setAppearance": {
+      appearanceQueue = appearanceQueue
+        .catch(() => {})
+        .then(async () => {
+          const type = await appearance.save(value);
+          window.setIcon(appearance.icon());
+          return type;
+        });
+      return appearanceQueue;
+    }
+    case "createShortcut": {
+      await appearanceQueue;
+      if (!app.isPackaged)
+        throw new Error("请在打包后的 Windows 应用中创建快捷方式");
+      const chosen = await dialog.showSaveDialog(window, {
+        title: "保存个性化启动快捷方式",
+        defaultPath: path.join(app.getPath("desktop"), "拾光账本.lnk"),
+        filters: [{ name: "Windows 快捷方式", extensions: ["lnk"] }],
+      });
+      if (chosen.canceled || !chosen.filePath) return false;
+      const icon = path.join(appearance.root, `ledger-${appearance.type}.ico`);
+      await fs.copyFile(appearance.icon(), icon);
+      if (
+        !shell.writeShortcutLink(chosen.filePath, "create", {
+          target: process.execPath,
+          cwd: path.dirname(process.execPath),
+          icon,
+          iconIndex: 0,
+          description: `拾光账本 · ${appearance.type}`,
+          appUserModelId: "cn.goesm.jpersonalcba",
+        })
+      )
+        throw new Error("快捷方式保存失败");
+      return true;
+    }
     case "load":
       return location.load();
     case "save": {
@@ -134,6 +180,7 @@ ipcMain.on("close-ready", async (event) => {
   authorized(event);
   try {
     await writeQueue;
+    await appearanceQueue;
     allowClose = true;
     window.close();
   } catch (error) {
@@ -163,6 +210,17 @@ async function smokeCheck() {
         report.categories < 8
       )
         throw new Error("初始界面数据异常");
+      const selected = await window.webContents
+        .executeJavaScript(`(async () => {
+        await window.ledgerApi.setAppearance('ENFJ');
+        return window.ledgerApi.getAppearance();
+      })()`);
+      if (
+        selected !== "ENFJ" ||
+        (await new Appearance(smokeRoot).load()) !== "ENFJ"
+      )
+        throw new Error("形象未持久保存");
+      console.log("SMOKE_APPEARANCE ENFJ persisted through IPC");
       app.quit();
       return;
     }
@@ -174,13 +232,12 @@ async function smokeCheck() {
 app
   .whenReady()
   .then(async () => {
-    const appDataRoot = smoke
-      ? (smokeRoot = await fs.mkdtemp(
-          path.join(os.tmpdir(), "shiguang-smoke-"),
-        ))
-      : app.getPath("userData");
+    const appDataRoot = app.getPath("userData");
     location = await new LedgerLocation(appDataRoot).initialize();
     store = location.store;
+    appearance = new Appearance(appDataRoot);
+    await appearance.load();
+    app.setAppUserModelId("cn.goesm.jpersonalcba");
     session.defaultSession.setPermissionRequestHandler(
       (_contents, _permission, callback) => callback(false),
     );
@@ -190,6 +247,7 @@ app
       minWidth: 860,
       minHeight: 660,
       title: "拾光账本",
+      icon: appearance.icon(),
       show: !smoke,
       backgroundColor: "#f6f5f1",
       webPreferences: {

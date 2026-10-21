@@ -1504,5 +1504,76 @@
       showRecovery(error);
     }
   }
+  const characterTypes = [
+    "INTJ",
+    "ENTJ",
+    "INFJ",
+    "ENFJ",
+    "ISTJ",
+    "ESTJ",
+    "ISFJ",
+    "ESFJ",
+  ];
+  function renderCharacter(type) {
+    const selected = characterTypes.includes(type) ? type : "INTJ";
+    const image = `./assets/characters/${selected}/icon.png`;
+    $("#app-character").src = image;
+    $("#app-character").alt = `${selected} 账本形象`;
+    $("#app-favicon").href = image;
+    $("#character-status").textContent = `当前形象：${selected}`;
+    $$(".character-option").forEach((button) =>
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.type === selected),
+      ),
+    );
+  }
+  $("#character-options").innerHTML = characterTypes
+    .map(
+      (type) =>
+        `<button type="button" class="character-option" data-type="${type}" aria-pressed="false"><img src="./assets/characters/${type}/icon.png" alt="" /><span>${type}</span></button>`,
+    )
+    .join("");
+  $("#character-options").addEventListener("click", async (event) => {
+    const button = event.target.closest(".character-option");
+    if (!button || button.disabled) return;
+    $$(".character-option").forEach((item) => (item.disabled = true));
+    try {
+      const type = button.dataset.type;
+      if (window.ledgerApi?.setAppearance)
+        await window.ledgerApi.setAppearance(type);
+      else localStorage.setItem("shiguang-appearance", type);
+      renderCharacter(type);
+    } catch (error) {
+      $("#character-status").textContent = `形象保存失败：${error.message}`;
+    } finally {
+      $$(".character-option").forEach((item) => (item.disabled = false));
+    }
+  });
+  $("#create-character-shortcut").addEventListener("click", async () => {
+    try {
+      if (!window.ledgerApi?.createShortcut)
+        return toast("请在 Windows 应用中创建快捷方式");
+      if (await window.ledgerApi.createShortcut())
+        toast("已保存当前形象的快捷方式");
+    } catch (error) {
+      toast(`创建失败：${error.message}`);
+    }
+  });
+  async function initializeAppearance() {
+    $$(".character-option").forEach((item) => (item.disabled = true));
+    try {
+      renderCharacter(
+        window.ledgerApi?.getAppearance
+          ? await window.ledgerApi.getAppearance()
+          : localStorage.getItem("shiguang-appearance"),
+      );
+    } catch (error) {
+      $("#character-status").textContent = `形象读取失败：${error.message}`;
+    } finally {
+      $$(".character-option").forEach((item) => (item.disabled = false));
+    }
+  }
+  initializeAppearance();
   initialize();
 })();

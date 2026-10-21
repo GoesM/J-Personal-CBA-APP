@@ -2,6 +2,9 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const invoke = (method, value) => ipcRenderer.invoke("ledger", method, value);
 contextBridge.exposeInMainWorld("ledgerApi", {
+  getAppearance: () => invoke("getAppearance"),
+  setAppearance: (type) => invoke("setAppearance", type),
+  createShortcut: () => invoke("createShortcut"),
   load: () => invoke("load"),
   save: (state) => invoke("save", state),
   exportBackup: () => invoke("export"),

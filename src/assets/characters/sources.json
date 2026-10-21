@@ -1,0 +1,58 @@
+[
+  {
+    "id": "INTJ",
+    "url": "https://www.16personalities.com/static/images/personality-types/avatars/intj-architect-male.svg?v=3",
+    "local": "references/16personalities/INTJ.svg",
+    "retrieved": "2026-10-21",
+    "owner": "16Personalities / NERIS Analytics Limited"
+  },
+  {
+    "id": "ENTJ",
+    "url": "https://www.16personalities.com/static/images/personality-types/avatars/entj-commander-female.svg?v=3",
+    "local": "references/16personalities/ENTJ.svg",
+    "retrieved": "2026-10-21",
+    "owner": "16Personalities / NERIS Analytics Limited"
+  },
+  {
+    "id": "INFJ",
+    "url": "https://www.16personalities.com/static/images/personality-types/avatars/infj-advocate-male.svg?v=3",
+    "local": "references/16personalities/INFJ.svg",
+    "retrieved": "2026-10-21",
+    "owner": "16Personalities / NERIS Analytics Limited"
+  },
+  {
+    "id": "ENFJ",
+    "url": "https://www.16personalities.com/static/images/personality-types/avatars/enfj-protagonist-male.svg?v=3",
+    "local": "references/16personalities/ENFJ.svg",
+    "retrieved": "2026-10-21",
+    "owner": "16Personalities / NERIS Analytics Limited"
+  },
+  {
+    "id": "ISTJ",
+    "url": "https://www.16personalities.com/static/images/personality-types/avatars/istj-logistician-male.svg?v=3",
+    "local": "references/16personalities/ISTJ.svg",
+    "retrieved": "2026-10-21",
+    "owner": "16Personalities / NERIS Analytics Limited"
+  },
+  {
+    "id": "ESTJ",
+    "url": "https://www.16personalities.com/static/images/personality-types/avatars/estj-executive-female.svg?v=3",
+    "local": "references/16personalities/ESTJ.svg",
+    "retrieved": "2026-10-21",
+    "owner": "16Personalities / NERIS Analytics Limited"
+  },
+  {
+    "id": "ISFJ",
+    "url": "https://www.16personalities.com/static/images/personality-types/avatars/isfj-defender-female.svg?v=3",
+    "local": "references/16personalities/ISFJ.svg",
+    "retrieved": "2026-10-21",
+    "owner": "16Personalities / NERIS Analytics Limited"
+  },
+  {
+    "id": "ESFJ",
+    "url": "https://www.16personalities.com/static/images/personality-types/avatars/esfj-consul-male.svg?v=3",
+    "local": "references/16personalities/ESFJ.svg",
+    "retrieved": "2026-10-21",
+    "owner": "16Personalities / NERIS Analytics Limited"
+  }
+]

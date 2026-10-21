@@ -9,6 +9,11 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'"
     />
     <title>拾光账本 · Windows</title>
+    <link
+      id="app-favicon"
+      rel="icon"
+      href="./assets/characters/INTJ/icon.png"
+    />
     <link rel="stylesheet" href="./styles.css" />
     <script defer src="./accounting.js"></script>
     <script defer src="./app.js"></script>
@@ -17,8 +22,13 @@
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <span class="brand-mark">拾</span
-          ><span
+          <img
+            class="brand-mark"
+            id="app-character"
+            src="./assets/characters/INTJ/icon.png"
+            alt="INTJ 账本形象"
+          />
+          <span
             ><strong>拾光账本</strong><small>把日子过得明明白白</small></span
           >
         </div>
@@ -436,6 +446,34 @@
             </div>
           </div>
           <div class="settings-grid">
+            <section class="panel settings-panel storage-panel">
+              <div class="eyebrow">YOUR CHARACTER</div>
+              <h2>选择你的 MBTI 形象</h2>
+              <p>
+                已有 8 种 J
+                型人格形象。点击立即应用到窗口与应用内标识，重启后仍保留。当前素材尚未包含
+                P 型人格。
+              </p>
+              <div
+                id="character-options"
+                class="character-options"
+                role="group"
+                aria-label="MBTI 形象"
+              ></div>
+              <p id="character-status" role="status" aria-live="polite"></p>
+              <button
+                type="button"
+                class="secondary-button"
+                id="create-character-shortcut"
+              >
+                创建当前形象的桌面快捷方式
+              </button>
+              <p>
+                桌面图标通过快捷方式展示；切换形象后可重新创建并替换原快捷方式。EXE
+                文件本身使用默认图标，已固定到任务栏的旧图标可能需要重新固定。
+              </p>
+              <p>人物素材来源：16Personalities / NERIS Analytics Limited。</p>
+            </section>
             <section class="panel settings-panel">
               <div class="eyebrow">BACKUP</div>
               <h2>导出账本</h2>
