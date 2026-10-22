@@ -1540,10 +1540,26 @@
     $$(".character-option").forEach((item) => (item.disabled = true));
     try {
       const type = button.dataset.type;
+      let result;
       if (window.ledgerApi?.setAppearance)
-        await window.ledgerApi.setAppearance(type);
+        result = await window.ledgerApi.setAppearance(type);
       else localStorage.setItem("shiguang-appearance", type);
       renderCharacter(type);
+      if (result?.shortcutError)
+        $("#character-status").textContent +=
+          `；快捷方式同步失败：${result.shortcutError}`;
+      else if (result?.shortcuts) {
+        const report = result.shortcuts;
+        $("#character-status").textContent += report.matched
+          ? `；已同步 ${report.matched - report.failed} 个快捷方式`
+          : "；未找到指向当前程序的快捷方式，可点击下方按钮创建";
+        if (report.failed || report.scanFailed)
+          $("#character-status").textContent +=
+            "；部分位置无法访问或修改，请检查快捷方式权限";
+        if (!report.refreshed)
+          $("#character-status").textContent +=
+            "；系统图标刷新失败，可稍后重新选择形象重试";
+      }
     } catch (error) {
       $("#character-status").textContent = `形象保存失败：${error.message}`;
     } finally {

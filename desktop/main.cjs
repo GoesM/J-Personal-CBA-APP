@@ -11,6 +11,11 @@ const os = require("node:os");
 const path = require("node:path");
 const { LedgerLocation } = require("./location.cjs");
 const { Appearance } = require("./appearance.cjs");
+const {
+  syncShortcuts,
+  shortcutRoots,
+  refreshIcons,
+} = require("./shortcuts.cjs");
 let appearance;
 let appearanceQueue = Promise.resolve();
 
@@ -43,6 +48,20 @@ function authorized(event) {
     throw new Error("非法调用来源");
 }
 
+async function syncAppearanceShortcuts() {
+  if (smoke || !app.isPackaged || process.platform !== "win32") return null;
+  const icon = await appearance.externalIcon();
+  const result = await syncShortcuts({
+    roots: shortcutRoots(app),
+    extraPaths: appearance.shortcuts,
+    target: process.execPath,
+    icon,
+    shell,
+  });
+  result.refreshed = result.matched > 0 ? await refreshIcons() : true;
+  return result;
+}
+
 ipcMain.handle("ledger", async (event, method, value) => {
   authorized(event);
   switch (method) {
@@ -54,7 +73,11 @@ ipcMain.handle("ledger", async (event, method, value) => {
         .then(async () => {
           const type = await appearance.save(value);
           window.setIcon(appearance.icon());
-          return type;
+          try {
+            return { type, shortcuts: await syncAppearanceShortcuts() };
+          } catch (error) {
+            return { type, shortcutError: error.message };
+          }
         });
       return appearanceQueue;
     }
@@ -68,8 +91,7 @@ ipcMain.handle("ledger", async (event, method, value) => {
         filters: [{ name: "Windows 快捷方式", extensions: ["lnk"] }],
       });
       if (chosen.canceled || !chosen.filePath) return false;
-      const icon = path.join(appearance.root, `ledger-${appearance.type}.ico`);
-      await fs.copyFile(appearance.icon(), icon);
+      const icon = await appearance.externalIcon();
       if (
         !shell.writeShortcutLink(chosen.filePath, "create", {
           target: process.execPath,
@@ -81,6 +103,8 @@ ipcMain.handle("ledger", async (event, method, value) => {
         })
       )
         throw new Error("快捷方式保存失败");
+      await appearance.rememberShortcut(chosen.filePath);
+      await refreshIcons();
       return true;
     }
     case "load":
@@ -221,6 +245,36 @@ async function smokeCheck() {
       )
         throw new Error("形象未持久保存");
       console.log("SMOKE_APPEARANCE ENFJ persisted through IPC");
+      const shortcut = path.join(smokeRoot, "test.lnk");
+      if (
+        !shell.writeShortcutLink(shortcut, "create", {
+          target: process.execPath,
+          args: "--example",
+          description: "keep-description",
+          icon: appearance.icon("INTJ"),
+          iconIndex: 0,
+        })
+      )
+        throw new Error("测试快捷方式创建失败");
+      const icon = await appearance.externalIcon();
+      const synced = await syncShortcuts({
+        roots: [smokeRoot],
+        target: process.execPath,
+        icon,
+        shell,
+      });
+      const details = shell.readShortcutLink(shortcut);
+      if (
+        synced.updated !== 1 ||
+        details.icon !== icon ||
+        details.args !== "--example" ||
+        details.description !== "keep-description"
+      )
+        throw new Error("快捷方式更新或属性保留异常");
+      if (!(await refreshIcons())) throw new Error("系统图标刷新失败");
+      console.log(
+        "SMOKE_SHORTCUT updated actual Windows link; arguments preserved; refresh succeeded",
+      );
       app.quit();
       return;
     }
@@ -289,6 +343,10 @@ app
         }),
       );
     await window.loadFile(path.join(__dirname, "../src/index.html"));
+    appearanceQueue = appearanceQueue
+      .catch(() => {})
+      .then(() => syncAppearanceShortcuts())
+      .catch((error) => console.error("Shortcut sync:", error.message));
   })
   .catch((error) => {
     console.error(error);
