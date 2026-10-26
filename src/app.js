@@ -426,25 +426,27 @@
     $("#trend-title").textContent =
       analysisPeriod === "month" ? "每周收支" : "每月收支";
     renderTrend(items);
-    renderDistributionControls("expense");
-    renderDistributionControls("income");
+    renderDistributionControls("expense", expenses);
+    renderDistributionControls("income", incomes);
     renderDistribution("#expense-distribution", expenses, "expense");
     renderDistribution("#income-distribution", incomes, "income");
-    const top = groupByCategory(expenses)[0];
-    $("#analysis-note").textContent =
-      originalItems.length === 0
-        ? "这段时间还没有记录。添上几笔账目后，分析会自动出现。"
-        : items.length === 0
-          ? `本期记录 ${originalItems.length} 笔账目，当前口径金额为零；债务与报销明细可在下方查看。`
-          : top
-            ? `这段时间共记录 ${items.length} 笔账目。支出最多的是“${top.name}”，占总支出的 ${Math.round((top.amount / expense) * 100)}%。${net >= 0 ? "整体保持了正结余。" : "整体支出超过了收入。"}`
-            : `这段时间共记录 ${items.length} 笔账目，暂时没有支出。`;
     renderObligations();
   }
   function renderTrend(items) {
     const keys =
       analysisPeriod === "month"
-        ? [1, 2, 3, 4, 5]
+        ? Array.from(
+            {
+              length: Math.ceil(
+                new Date(
+                  Number(analysisMonth.slice(0, 4)),
+                  Number(analysisMonth.slice(5)),
+                  0,
+                ).getDate() / 7,
+              ),
+            },
+            (_, i) => i + 1,
+          )
         : Array.from({ length: 12 }, (_, i) => i + 1);
     const values = keys.map((key) => {
       const subset = items.filter((item) =>
@@ -454,6 +456,10 @@
       );
       return {
         label: analysisPeriod === "month" ? `第${key}周` : `${key}月`,
+        range:
+          analysisPeriod === "month"
+            ? `${analysisMonth}-${pad((key - 1) * 7 + 1)} 至 ${analysisMonth}-${pad(Math.min(key * 7, new Date(Number(analysisMonth.slice(0, 4)), Number(analysisMonth.slice(5)), 0).getDate()))}`
+            : `${analysisYear}-${pad(key)}-01 至 ${analysisYear}-${pad(key)}-${pad(new Date(analysisYear, key, 0).getDate())}`,
         income: sum(
           subset.filter((item) => item.type === "income"),
           (item) => item.amount,
@@ -471,16 +477,23 @@
     $("#trend-chart").innerHTML = values
       .map(
         (item) =>
-          `<div class="trend-group"><div class="trend-bars"><div class="trend-bar income" style="height:${Math.max(1, (item.income / max) * 100)}%" title="${item.label} 收入 ${money(item.income)}"></div><div class="trend-bar expense" style="height:${Math.max(1, (item.expense / max) * 100)}%" title="${item.label} 支出 ${money(item.expense)}"></div></div><span class="trend-label">${item.label}</span></div>`,
+          `<div class="trend-group"><div class="trend-bars">${["income", "expense"].map((type) => `<div tabindex="0" role="img" aria-label="${item.range} ${type === "income" ? "收入" : "支出"} ${money(item[type])}" class="trend-bar ${type}" style="height:${Math.max(1, (item[type] / max) * 100)}%"><span class="trend-tooltip">${item.label} · ${item.range}<br>${type === "income" ? "收入" : "支出"} ${money(item[type])}</span></div>`).join("")}</div><span class="trend-label" tabindex="0">${item.label}<span class="trend-tooltip">${item.range}<br>收入 ${money(item.income)} · 支出 ${money(item.expense)}</span></span></div>`,
       )
       .join("");
   }
-  function renderDistributionControls(type) {
+  function renderDistributionControls(type, entries) {
+    const amounts = new Map(
+      groupByCategory(entries).map((g) => [g.id, g.amount]),
+    );
+    const total = sum(
+      entries.filter((e) => !excludedCategoryIds().includes(e.categoryId)),
+      (e) => e.amount,
+    );
     const items = state.categories.filter((item) => item.type === type);
     const excluded = new Set(excludedCategoryIds());
     const selected = items.filter((item) => !excluded.has(item.id)).length;
     $(`#${type}-category-filter`).innerHTML =
-      `<div class="distribution-control-head"><span>已选 ${selected} / ${items.length} 类</span><div class="distribution-control-actions"><button type="button" data-distribution-action="all" data-distribution-type="${type}">全选</button><button type="button" data-distribution-action="none" data-distribution-type="${type}">清空</button></div></div><div class="distribution-options">${items.length ? items.map((item) => `<label class="distribution-option ${excluded.has(item.id) ? "is-excluded" : ""}"><input type="checkbox" data-distribution-category="${escapeHTML(item.id)}" ${excluded.has(item.id) ? "" : "checked"}><span>${escapeHTML(item.name)}</span></label>`).join("") : '<span class="distribution-empty">暂无类别，可先到类别管理添加。</span>'}</div>`;
+      `<div class="distribution-control-head"><span>已选 ${selected} / ${items.length} 类</span><div class="distribution-control-actions"><button type="button" data-distribution-action="all" data-distribution-type="${type}">全选</button><button type="button" data-distribution-action="none" data-distribution-type="${type}">清空</button></div></div><div class="distribution-options">${items.length ? items.map((item) => `<label class="distribution-option ${excluded.has(item.id) ? "is-excluded" : ""}"><input type="checkbox" data-distribution-category="${escapeHTML(item.id)}" ${excluded.has(item.id) ? "" : "checked"}><i class="category-color" style="background:${escapeHTML(item.color)}"></i><span class="category-legend-copy"><span>${escapeHTML(item.name)}</span>${excluded.has(item.id) ? "" : `<small class="category-share">${money(amounts.get(item.id) || 0)} · ${total ? Math.round(((amounts.get(item.id) || 0) / total) * 100) : 0}%</small>`}</span></label>`).join("") : '<span class="distribution-empty">暂无类别，可先到类别管理添加。</span>'}</div>`;
   }
   function renderDistribution(selector, items, type) {
     const excluded = new Set(excludedCategoryIds());
@@ -509,7 +522,7 @@
       return `${item.color} ${start}% ${position}%`;
     });
     $(selector).innerHTML =
-      `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${segments.join(",")})"><div class="donut-center"><span>所选总计</span><strong>${money(total)}</strong></div></div><div class="distribution-list">${groups.map((item) => `<div class="distribution-row" title="${escapeHTML(item.name)}：${money(item.amount)}"><span><i style="background:${escapeHTML(item.color)}"></i>${escapeHTML(item.name)}</span><strong>${Math.round((item.amount / total) * 100)}%</strong></div>`).join("")}</div></div>`;
+      `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${segments.join(",")})"><div class="donut-center"><span>所选总计</span><strong>${money(total)}</strong></div></div></div>`;
   }
 
   function renderFlowDistributions(entries) {

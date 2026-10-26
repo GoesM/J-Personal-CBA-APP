@@ -625,18 +625,38 @@ test("占比图按勾选类别计算，并记住当前账本的选择", async ()
   const $ = (selector) => dom.window.document.querySelector(selector);
   assert($("#expense-distribution").textContent.includes("40.00"));
   const food = $('[data-distribution-category="food"]');
+  assert(
+    food
+      .closest("label")
+      .querySelector(".category-share")
+      .textContent.includes("25%"),
+  );
   food.checked = false;
   food.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
   await tick();
   assert.deepEqual(saved.analysisPreferences.excludedCategoryIds, ["food"]);
   assert($("#expense-distribution").textContent.includes("30.00"));
   assert(!$("#expense-distribution").textContent.includes("食"));
+  assert.equal(
+    $('[data-distribution-category="food"]')
+      .closest("label")
+      .querySelector(".category-share"),
+    null,
+  );
+  assert.equal($("#analysis-note"), null);
   assert($("#analysis-expense").textContent.includes("40.00"));
   $(
     '[data-distribution-action="none"][data-distribution-type="income"]',
   ).click();
   await tick();
   assert($("#income-distribution").textContent.includes("尚未选择"));
+  $("#analysis-month").value = "2027-02";
+  $("#analysis-month").dispatchEvent(
+    new dom.window.Event("change", { bubbles: true }),
+  );
+  assert.equal(dom.window.document.querySelectorAll(".trend-group").length, 4);
+  assert($("#trend-chart").textContent.includes("2027-02-22 至 2027-02-28"));
+  assert($(".trend-bar").getAttribute("aria-label").includes("收入"));
   dom.window.close();
 
   const reopened = await open();

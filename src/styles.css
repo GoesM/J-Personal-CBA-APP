@@ -2342,3 +2342,65 @@ p {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.distribution-option {
+  align-items: flex-start;
+  padding: 10px 12px;
+  gap: 7px;
+}
+.category-color {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  margin-top: 3px;
+}
+.category-legend-copy {
+  display: grid;
+  gap: 5px;
+}
+.category-share {
+  font-size: 11px;
+  color: #66796c;
+  font-variant-numeric: tabular-nums;
+}
+.trend-bar,
+.trend-label {
+  position: relative;
+  cursor: help;
+}
+.trend-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: max-content;
+  max-width: 245px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #294d3e;
+  color: white;
+  font-size: 11px;
+  line-height: 1.7;
+  box-shadow: 0 6px 20px #20342826;
+  pointer-events: none;
+  font-weight: normal;
+  text-align: left;
+}
+.trend-bar:hover .trend-tooltip,
+.trend-bar:focus .trend-tooltip,
+.trend-label:hover .trend-tooltip,
+.trend-label:focus .trend-tooltip {
+  display: block;
+}
+.trend-group:first-child .trend-tooltip {
+  left: 0;
+  transform: none;
+}
+.trend-group:last-child .trend-tooltip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
