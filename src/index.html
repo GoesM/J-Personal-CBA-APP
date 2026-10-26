@@ -212,69 +212,71 @@
           <div class="analysis-basis">
             <p id="analysis-basis-hint"></p>
           </div>
-          <div class="analysis-grid">
-            <section class="panel chart-panel">
-              <div class="panel-head">
-                <div>
-                  <div class="eyebrow">CASH FLOW</div>
-                  <h2 id="trend-title">每周收支</h2>
+          <div class="analysis-columns">
+            <div class="analysis-column" aria-label="普通收支统计">
+              <section class="panel chart-panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="eyebrow">CASH FLOW</div>
+                    <h2 id="trend-title">每周收支</h2>
+                  </div>
+                  <div class="chart-legend">
+                    <span><i class="legend-income"></i>收入</span
+                    ><span><i class="legend-expense"></i>支出</span>
+                  </div>
                 </div>
-                <div class="chart-legend">
-                  <span><i class="legend-income"></i>收入</span
-                  ><span><i class="legend-expense"></i>支出</span>
-                </div>
-              </div>
-              <div id="trend-chart" class="trend-chart"></div>
-            </section>
-            <section class="panel distribution-panel">
-              <div class="eyebrow">EXPENSES</div>
-              <h2>支出去向</h2>
-              <p class="distribution-hint">选择参与占比计算的支出类别</p>
-              <div
-                id="expense-category-filter"
-                class="distribution-controls"
-              ></div>
-              <div id="expense-distribution"></div>
-            </section>
-            <section class="panel distribution-panel">
-              <div class="eyebrow">INCOME</div>
-              <h2>收入来源</h2>
-              <p class="distribution-hint">选择参与占比计算的收入类别</p>
-              <div
-                id="income-category-filter"
-                class="distribution-controls"
-              ></div>
-              <div id="income-distribution"></div>
-            </section>
-            <section class="panel note-panel">
-              <div class="eyebrow">A LITTLE NOTE</div>
-              <h2>关于你的这段时间</h2>
-              <p id="analysis-note"></p>
-            </section>
-          </div>
-          <div class="analysis-grid flow-grid" aria-label="独立金钱流统计">
-            <section class="panel distribution-panel">
-              <h2>借出 — 收回</h2>
-              <p>本期垫付、借出与收回本金的发生额，不计收入支出。</p>
-              <div id="receivable-flow"></div>
-            </section>
-            <section class="panel distribution-panel">
-              <h2>借入 — 还出</h2>
-              <p>本期借入与偿还本金的发生额，不计收入支出。</p>
-              <div id="payable-flow"></div>
-              <p id="credit-flow-note" class="form-hint"></p>
-            </section>
-            <section class="panel distribution-panel">
-              <h2>可报销 — 报销到账</h2>
-              <p>本期可报销支出与报销到账的发生额，不计收入支出。</p>
-              <div id="reimbursement-flow"></div>
-            </section>
-            <section class="panel note-panel">
-              <h2>发生额与未结清余额</h2>
-              <p>
-                上方三张图随所选月／年变化，流出与流入相加表示往来发生额，并非还款或报销完成率。期初发生、本期收回的金额也计入本期；未结清余额请看下方全历史往来。
-              </p>
-            </section>
+                <div id="trend-chart" class="trend-chart"></div>
+              </section>
+              <section class="panel distribution-panel">
+                <div class="eyebrow">EXPENSES</div>
+                <h2>支出去向</h2>
+                <p class="distribution-hint">选择参与占比计算的支出类别</p>
+                <div
+                  id="expense-category-filter"
+                  class="distribution-controls"
+                ></div>
+                <div id="expense-distribution"></div>
+              </section>
+              <section class="panel distribution-panel">
+                <div class="eyebrow">INCOME</div>
+                <h2>收入来源</h2>
+                <p class="distribution-hint">选择参与占比计算的收入类别</p>
+                <div
+                  id="income-category-filter"
+                  class="distribution-controls"
+                ></div>
+                <div id="income-distribution"></div>
+              </section>
+              <section class="panel note-panel">
+                <div class="eyebrow">A LITTLE NOTE</div>
+                <h2>关于你的这段时间</h2>
+                <p id="analysis-note"></p>
+              </section>
+            </div>
+            <div class="analysis-column flow-grid" aria-label="独立金钱流统计">
+              <section class="panel distribution-panel">
+                <h2>借出 — 收回</h2>
+                <p>本期垫付、借出与收回本金的发生额，不计收入支出。</p>
+                <div id="receivable-flow"></div>
+              </section>
+              <section class="panel distribution-panel">
+                <h2>借入 — 还出</h2>
+                <p>本期借入与偿还本金的发生额，不计收入支出。</p>
+                <div id="payable-flow"></div>
+                <p id="credit-flow-note" class="form-hint"></p>
+              </section>
+              <section class="panel distribution-panel">
+                <h2>可报销 — 报销到账</h2>
+                <p>本期可报销支出与报销到账的发生额，不计收入支出。</p>
+                <div id="reimbursement-flow"></div>
+              </section>
+              <section class="panel note-panel">
+                <h2>发生额与未结清余额</h2>
+                <p>
+                  上方三张图随所选月／年变化，流出与流入相加表示往来发生额，并非还款或报销完成率。期初发生、本期收回的金额也计入本期；未结清余额请看下方全历史往来。
+                </p>
+              </section>
+            </div>
           </div>
           <section class="panel obligations-panel">
             <div class="panel-head">

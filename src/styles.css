@@ -2315,3 +2315,30 @@ p {
 .flow-grid .distribution-row strong {
   font-size: 12px;
 }
+
+/* Keep ordinary income/expenses left and independent flows right. */
+.analysis-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.analysis-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  min-width: 0;
+}
+.analysis-column .distribution-list {
+  width: 100%;
+  grid-template-columns: 1fr;
+}
+.analysis-column .donut-wrap {
+  flex-direction: column;
+  align-items: center;
+}
+@media (max-width: 800px) {
+  .analysis-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
