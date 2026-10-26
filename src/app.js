@@ -240,7 +240,7 @@
     const selected = categorySelect.value;
     categorySelect.innerHTML =
       '<option value="all">全部类别</option>' +
-      state.categories
+      [...state.categories, ...Accounting.FLOW_CATEGORIES]
         .map(
           (item) =>
             `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)}</option>`,
@@ -258,7 +258,10 @@
         (item) =>
           (type === "all" || item.type === type) &&
           (categorySelect.value === "all" ||
-            item.categoryId === categorySelect.value) &&
+            item.categoryId === categorySelect.value ||
+            Accounting.flowComponents(item).some(
+              (part) => part.categoryId === categorySelect.value,
+            )) &&
           (!term ||
             `${item.description} ${category(item.categoryId)?.name || ""} ${specialSummary(item)}`
               .toLocaleLowerCase()
@@ -374,6 +377,8 @@
       : "";
   }
   function renderAnalysis() {
+    excludedCategoryIds();
+    state.analysisPreferences.basis = "actual";
     $("#analysis-month").value = analysisMonth;
     const years = [
       ...new Set([
@@ -400,21 +405,10 @@
         ? entry.date.startsWith(analysisMonth)
         : entry.date.startsWith(String(analysisYear)),
     );
-    const basis = state.analysisPreferences?.basis || "actual";
-    $("#analysis-basis").value = basis;
     $("#analysis-basis-hint").textContent =
-      basis === "actual"
-        ? "只统计自己的消费和收入。垫付、待报销及债务本金单独跟踪；信用消费在消费当天计入。"
-        : "统计本期现金流入与流出，包含债务本金和报销到账；信用付款在还款时体现现金流出。";
-    const items = originalItems
-      .map((entry) => ({
-        ...entry,
-        amount:
-          basis === "actual"
-            ? Accounting.actualAmount(entry)
-            : Accounting.cashAmount(entry),
-      }))
-      .filter((entry) => entry.amount > 0);
+      "普通收支只计自己的消费和收入；债务本金、垫付与报销在下方独立统计。信用消费当天计消费，归还本金不再计支出。";
+    const items = actualEntries(originalItems);
+    renderFlowDistributions(originalItems);
     const incomes = items.filter((item) => item.type === "income");
     const expenses = items.filter((item) => item.type === "expense");
     const income = sum(incomes, (item) => item.amount);
@@ -518,13 +512,60 @@
       `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${segments.join(",")})"><div class="donut-center"><span>所选总计</span><strong>${money(total)}</strong></div></div><div class="distribution-list">${groups.map((item) => `<div class="distribution-row" title="${escapeHTML(item.name)}：${money(item.amount)}"><span><i style="background:${escapeHTML(item.color)}"></i>${escapeHTML(item.name)}</span><strong>${Math.round((item.amount / total) * 100)}%</strong></div>`).join("")}</div></div>`;
   }
 
+  function renderFlowDistributions(entries) {
+    const { totals, credit } = Accounting.flowTotals(entries);
+    for (const [id, kinds] of [
+      ["receivable-flow", ["lent", "recovered"]],
+      ["payable-flow", ["borrowed", "repaid"]],
+      ["reimbursement-flow", ["reimbursable", "reimbursed"]],
+    ]) {
+      const total = sum(kinds, (kind) => totals[kind]);
+      const colors = ["#d5a16a", "#729c8a"];
+      const percent = total ? (totals[kinds[0]] / total) * 100 : 0;
+      const chart = total
+        ? '<div class="donut" role="img" aria-label="本期往来发生额占比" style="background:conic-gradient(' +
+          colors[0] +
+          " 0% " +
+          percent +
+          "%, " +
+          colors[1] +
+          " " +
+          percent +
+          '% 100%)"><div class="donut-center"><span>往来发生额</span><strong>' +
+          money(total) +
+          "</strong></div></div>"
+        : '<div class="distribution-empty">本期暂无此类金钱流</div>';
+      $("#" + id).innerHTML =
+        '<div class="donut-wrap">' +
+        chart +
+        '<div class="distribution-list">' +
+        kinds
+          .map(
+            (kind, i) =>
+              '<div class="distribution-row"><span><i style="background:' +
+              colors[i] +
+              '"></i>' +
+              escapeHTML(Accounting.TAGS[kind].name) +
+              "</span><strong>" +
+              money(totals[kind]) +
+              " · " +
+              (total ? ((totals[kind] / total) * 100).toFixed(1) : "0.0") +
+              "%</strong></div>",
+          )
+          .join("") +
+        "</div></div>";
+    }
+    $("#credit-flow-note").textContent =
+      "借入包含本期信用融资 " +
+      money(credit) +
+      "（如花呗付款，并非现金到账）。";
+  }
+
   function renderCategories() {
-    $("#fixed-tags-list").innerHTML = Object.values(Accounting.TAGS)
-      .map(
-        (tag) =>
-          `<div><strong>${tag.name}</strong><small>${tag.claim ? tag.party : "关联原始账目，支持部分结算"}</small></div>`,
-      )
-      .join("");
+    $("#fixed-tags-list").innerHTML = Accounting.FLOW_CATEGORIES.map(
+      (tag) =>
+        `<div><strong>${tag.name}</strong><small>${tag.type === "expense" ? "流出" : "流入"} · 金钱流固定类别，不计普通收支</small></div>`,
+    ).join("");
     ["expense", "income"].forEach((type) => {
       const items = state.categories.filter((item) => item.type === type);
       $(`#${type}-category-count`).textContent = items.length;
@@ -1156,12 +1197,6 @@
     render();
     closeModals();
     toast(index >= 0 ? "账目已更新" : "账目已保存");
-  });
-  $("#analysis-basis").addEventListener("change", () => {
-    excludedCategoryIds();
-    state.analysisPreferences.basis = $("#analysis-basis").value;
-    save();
-    renderAnalysis();
   });
   $("#obligations-search").addEventListener("input", renderObligations);
   $("#obligations-settled").addEventListener("change", renderObligations);

@@ -230,13 +230,12 @@ test("录入多人垫付与花呗、从分析页部分收回、关联报销、�
   assert.equal(saved.entries[1].special[0].targetId, firstClaim);
   assert($("#receivables-list").textContent.includes("15.00"));
   assert($("#analysis-income").textContent.includes("0.00"));
-  const basis = $("#analysis-basis");
-  basis.value = "cash";
-  basis.dispatchEvent(new window.Event("change", { bubbles: true }));
-  await tick();
-  assert.equal(saved.analysisPreferences.basis, "cash");
-  assert($("#analysis-income").textContent.includes("10.00"));
-  assert($("#analysis-expense").textContent.includes("0.00"));
+  assert.equal($("#analysis-basis"), null);
+  assert($("#analysis-income").textContent.includes("0.00"));
+  assert($("#analysis-expense").textContent.includes("25.00"));
+  assert($("#receivable-flow").textContent.includes("75.00"));
+  assert($("#receivable-flow").textContent.includes("10.00"));
+  assert($("#payable-flow").textContent.includes("100.00"));
   $("#top-add").click();
   input($("#entry-amount"), "60");
   $("#entry-description").value = "出差车费";
@@ -248,6 +247,19 @@ test("录入多人垫付与花呗、从分析页部分收回、关联报销、�
   await submit();
   assert.equal(saved.entries.length, 4);
   assert.equal(saved.entries[3].special[0].targetId, reimbursement);
+  assert($("#reimbursement-flow").textContent.includes("120.00"));
+  assert($("#reimbursement-flow").textContent.includes("50.0%"));
+  assert($("#analysis-income").textContent.includes("0.00"));
+  assert($("#analysis-expense").textContent.includes("25.00"));
+  $("#ledger-category").value = "system:reimbursed";
+  $("#ledger-category").dispatchEvent(
+    new window.Event("change", { bubbles: true }),
+  );
+  assert.equal($("#record-count").textContent, "1");
+  $("#ledger-category").value = "all";
+  $("#ledger-category").dispatchEvent(
+    new window.Event("change", { bubbles: true }),
+  );
   assert(!$("#reimbursements-list").textContent.includes("出差车费"));
   $("#obligations-settled").checked = true;
   $("#obligations-settled").dispatchEvent(

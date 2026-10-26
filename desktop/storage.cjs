@@ -87,6 +87,9 @@ function validateState(state) {
       ["actual", "cash"].includes(state.analysisPreferences.basis),
     "收支分析口径无效",
   );
+  // Legacy cash mode is no longer a selectable income/expense interpretation.
+  if (state.analysisPreferences.basis === "cash")
+    state.analysisPreferences.basis = "actual";
   assert(
     Array.isArray(excluded) &&
       excluded.length <= state.categories.length &&

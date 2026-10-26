@@ -210,13 +210,6 @@
             </div>
           </div>
           <div class="analysis-basis">
-            <label for="analysis-basis">统计口径</label
-            ><select id="analysis-basis">
-              <option value="actual">
-                实际收支（排除债务本金、垫付与报销）
-              </option>
-              <option value="cash">资金进出（信用付款仅计现金部分）</option>
-            </select>
             <p id="analysis-basis-hint"></p>
           </div>
           <div class="analysis-grid">
@@ -257,6 +250,30 @@
               <div class="eyebrow">A LITTLE NOTE</div>
               <h2>关于你的这段时间</h2>
               <p id="analysis-note"></p>
+            </section>
+          </div>
+          <div class="analysis-grid flow-grid" aria-label="独立金钱流统计">
+            <section class="panel distribution-panel">
+              <h2>借出 — 收回</h2>
+              <p>本期垫付、借出与收回本金的发生额，不计收入支出。</p>
+              <div id="receivable-flow"></div>
+            </section>
+            <section class="panel distribution-panel">
+              <h2>借入 — 还出</h2>
+              <p>本期借入与偿还本金的发生额，不计收入支出。</p>
+              <div id="payable-flow"></div>
+              <p id="credit-flow-note" class="form-hint"></p>
+            </section>
+            <section class="panel distribution-panel">
+              <h2>可报销 — 报销到账</h2>
+              <p>本期可报销支出与报销到账的发生额，不计收入支出。</p>
+              <div id="reimbursement-flow"></div>
+            </section>
+            <section class="panel note-panel">
+              <h2>发生额与未结清余额</h2>
+              <p>
+                上方三张图随所选月／年变化，流出与流入相加表示往来发生额，并非还款或报销完成率。期初发生、本期收回的金额也计入本期；未结清余额请看下方全历史往来。
+              </p>
             </section>
           </div>
           <section class="panel obligations-panel">
@@ -396,7 +413,7 @@
           </div>
           <section class="panel fixed-tags-panel">
             <h2>
-              固有特定标签 <span class="tag-lock">系统固定 · 不可删除</span>
+              固定金钱流类别 <span class="tag-lock">系统固定 · 不可删除</span>
             </h2>
             <p class="form-hint">
               这些标签与事项类别独立；同一账目可以按金额添加多项垫付、债务或报销信息。

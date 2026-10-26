@@ -19,6 +19,54 @@ const part = (id, kind, party, amount, targetId) => ({
   ...(targetId ? { targetId } : {}),
 });
 
+test("固定金钱流独立汇总：混合支出、混合收入、跨月收回和报销不重复", () => {
+  const items = [
+    entry(
+      "meal24",
+      "expense",
+      24,
+      [part("advance12", "lent", "A", 12)],
+      "2026-09-30",
+    ),
+    entry("receipt24", "income", 24, [
+      part("returned12", "recovered", "A", 12, "advance12"),
+    ]),
+    entry("loan", "income", 100, [part("loan100", "borrowed", "B", 100)]),
+    entry("repayment", "expense", 42, [
+      part("repay40", "repaid", "B", 40, "loan100"),
+    ]),
+    entry("trip", "expense", 80, [part("claim60", "reimbursable", "公司", 60)]),
+    entry("reimburse", "income", 30, [
+      part("paid30", "reimbursed", "公司", 30, "claim60"),
+    ]),
+  ];
+  A.validate(items);
+  assert.deepEqual(A.flowTotals(items).totals, {
+    borrowed: 100,
+    repaid: 40,
+    lent: 12,
+    recovered: 12,
+    reimbursable: 60,
+    reimbursed: 30,
+  });
+  assert.equal(
+    A.flowTotals(items.filter((e) => e.date.startsWith("2026-10"))).totals.lent,
+    0,
+  );
+  assert.equal(A.actualAmount(items[0]), 12);
+  assert.equal(A.actualAmount(items[1]), 12);
+  assert.equal(A.actualAmount(items[3]), 2);
+  assert.equal(A.actualAmount(items[4]), 20);
+  for (const e of items)
+    assert.equal(
+      A.cents(A.actualAmount(e)) +
+        A.flowComponents(e).reduce((n, p) => n + A.cents(p.amount), 0),
+      A.cents(e.amount),
+    );
+  assert.equal(A.balances(items).reimbursements[0].remaining, 30);
+  assert.equal(A.FLOW_CATEGORIES.length, 6);
+});
+
 test("聚餐总付 100：自己 25，A/B/C 垫付各 25；部分收回不增加实际收入", () => {
   const meal = entry("meal", "expense", 100, [
     part("a", "lent", "A", 25),

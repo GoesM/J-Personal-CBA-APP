@@ -2299,3 +2299,19 @@ p {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.flow-grid .donut-wrap {
+  flex-direction: column;
+  align-items: center;
+}
+.flow-grid .distribution-list {
+  width: 100%;
+  grid-template-columns: 1fr;
+}
+.flow-grid .distribution-row {
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.flow-grid .distribution-row strong {
+  font-size: 12px;
+}

@@ -43,6 +43,55 @@
     },
   });
   const cents = (amount) => Math.round(Number(amount || 0) * 100);
+  const FLOW_CATEGORIES = Object.freeze(
+    Object.entries(TAGS).map(([kind, tag]) =>
+      Object.freeze({
+        id: `system:${kind}`,
+        kind,
+        name: tag.name,
+        type: tag.type,
+        fixed: true,
+      }),
+    ),
+  );
+  // Fixed flow categories are projections of special details, never duplicate entries.
+  function flowComponents(entry) {
+    return parts(entry)
+      .map((part) => ({
+        ...part,
+        categoryId: `system:${part.kind}`,
+        name: TAGS[part.kind].name,
+      }))
+      .concat(
+        entry.credit
+          ? [
+              {
+                kind: "borrowed",
+                categoryId: "system:borrowed",
+                name: TAGS.borrowed.name,
+                amount: entry.credit.amount,
+                party: entry.credit.party,
+                funding: true,
+              },
+            ]
+          : [],
+      );
+  }
+  function flowTotals(entries) {
+    const totals = Object.fromEntries(FLOW_CATEGORIES.map((c) => [c.kind, 0]));
+    let credit = 0;
+    for (const entry of entries)
+      for (const part of flowComponents(entry)) {
+        totals[part.kind] += cents(part.amount);
+        if (part.funding) credit += cents(part.amount);
+      }
+    return {
+      totals: Object.fromEntries(
+        Object.entries(totals).map(([kind, value]) => [kind, value / 100]),
+      ),
+      credit: credit / 100,
+    };
+  }
   const amountOK = (value) =>
     typeof value === "number" &&
     Number.isFinite(value) &&
@@ -318,6 +367,9 @@
   }
   return {
     TAGS,
+    FLOW_CATEGORIES,
+    flowComponents,
+    flowTotals,
     cents,
     actualAmount,
     cashAmount,

@@ -81,7 +81,7 @@
       "type": "object",
       "required": ["excludedCategoryIds"],
       "properties": {
-        "basis": { "enum": ["actual", "cash"] },
+        "basis": { "enum": ["actual"] },
         "excludedCategoryIds": {
           "type": "array",
           "maxItems": 1000,
