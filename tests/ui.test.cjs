@@ -674,3 +674,68 @@ test("占比图按勾选类别计算，并记住当前账本的选择", async ()
   );
   reopened.window.close();
 });
+
+test("关联新项置顶、排除已选原账目，取消或移除后可重新选择", async () => {
+  const dom = new JSDOM(html, {
+    url: "http://localhost/",
+    runScripts: "dangerously",
+  });
+  const w = dom.window;
+  w.scrollTo = () => {};
+  w.structuredClone = structuredClone;
+  w.eval(accountingScript);
+  w.eval(script);
+  await tick();
+  const $ = (s) => w.document.querySelector(s);
+  const change = (el, value) => {
+    el.value = value;
+    el.dispatchEvent(new w.Event("change", { bubbles: true }));
+  };
+  const input = (el, value) => {
+    el.value = value;
+    el.dispatchEvent(new w.Event("input", { bubbles: true }));
+  };
+  const select = (i) => $(`[data-special-index="${i}"] select`);
+  try {
+    for (const [origin, settlement, type] of [
+      ["borrowed", "repaid", "income"],
+      ["lent", "recovered", "expense"],
+      ["reimbursable", "reimbursed", "expense"],
+    ]) {
+      $("#top-add").click();
+      $(`[data-entry-type="${type}"]`).click();
+      input($("#entry-amount"), "100");
+      $("#entry-description").value = origin;
+      $(`[data-add-special="${origin}"]`).click();
+      input($('[data-special-field="party"]'), "测试对方");
+      $("#entry-form").dispatchEvent(
+        new w.Event("submit", { bubbles: true, cancelable: true }),
+      );
+      await tick();
+      $("#top-add").click();
+      $(
+        `[data-entry-type="${type === "income" ? "expense" : "income"}"]`,
+      ).click();
+      input($("#entry-amount"), "100");
+      $(`[data-add-special="${settlement}"]`).click();
+      const target = select(0).options[1].value;
+      change(select(0), target);
+      $(`[data-add-special="${settlement}"]`).click();
+      assert.equal(
+        $("#entry-special-rows").firstElementChild.dataset.specialIndex,
+        "1",
+      );
+      assert.equal(w.document.activeElement, select(1));
+      assert(![...select(1).options].some((o) => o.value === target));
+      assert.equal(select(0).value, target);
+      change(select(0), "");
+      assert([...select(1).options].some((o) => o.value === target));
+      change(select(1), target);
+      assert(![...select(0).options].some((o) => o.value === target));
+      $('[data-remove-special="1"]').click();
+      assert([...select(0).options].some((o) => o.value === target));
+    }
+  } finally {
+    w.close();
+  }
+});

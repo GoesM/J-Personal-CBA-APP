@@ -783,6 +783,11 @@
               .filter(
                 (c) =>
                   c.kind === tag.target &&
+                  (c.id === part.targetId ||
+                    !draftSpecial.some(
+                      (other, otherIndex) =>
+                        otherIndex !== index && other.targetId === c.id,
+                    )) &&
                   (c.remaining > 0 || c.id === part.targetId),
               )
               .map(
@@ -793,6 +798,7 @@
           : "";
         return `<div class="special-row" data-special-index="${index}"><div class="special-row-head"><strong>${tag.name}</strong><button type="button" class="delete-action" data-remove-special="${index}" aria-label="移除${tag.name}明细">移除</button></div>${tag.target ? `<div class="field"><label>关联原始账目 <em>*</em><select data-special-field="targetId" aria-label="${tag.name}关联原始账目"><option value="">请选择（可跨月关联）</option>${options}</select></label></div>` : ""}<div class="field-grid"><div class="field"><label>${tag.party}<input data-special-field="party" value="${escapeHTML(part.party)}" maxlength="60" list="party-suggestions" ${tag.target && claims.find((c) => c.id === part.targetId)?.party ? "readonly" : ""} placeholder="${part.kind === "reimbursable" ? "例如：公司差旅" : "名称需与之前保持一致"}" aria-label="${tag.name}对方"></label></div><div class="field"><label>金额 <em>*</em><input data-special-field="amount" type="number" min="0.01" max="1000000000" step="0.01" value="${part.amount || ""}" aria-label="${tag.name}金额"></label></div></div></div>`;
       })
+      .reverse()
       .join("");
     const parties = new Set(
       state.entries
@@ -869,9 +875,9 @@
       ...(Accounting.TAGS[kind].target ? { targetId: claim?.id || "" } : {}),
     });
     renderSpecialRows();
-    $("#entry-special-rows")
-      .lastElementChild?.querySelector("select, input")
-      ?.focus();
+    const row = $("#entry-special-rows").firstElementChild;
+    row?.querySelector("select, input")?.focus({ preventScroll: true });
+    row?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   }
   function setEntryType(type) {
     if ($("#entry-type").value !== type) {
@@ -1149,6 +1155,9 @@
       ? Math.min(claim.remaining, available || claim.remaining)
       : 0;
     renderSpecialRows();
+    $(`[data-special-index="${index}"] [data-special-field="amount"]`)?.focus({
+      preventScroll: true,
+    });
   });
   $("#entry-credit-enabled").addEventListener("change", renderSpecialRows);
   ["#entry-amount", "#entry-credit-party", "#entry-credit-amount"].forEach(
@@ -1191,6 +1200,16 @@
     try {
       Accounting.validate(candidate);
     } catch (error) {
+      if (error.targetId) {
+        const index = draftSpecial.findIndex(
+          (part) => part.targetId === error.targetId,
+        );
+        const row = $(`[data-special-index="${index}"]`);
+        row
+          ?.querySelector('[data-special-field="amount"]')
+          ?.focus({ preventScroll: true });
+        row?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+      }
       return toast(error.message);
     }
     const previous = state.entries;

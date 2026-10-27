@@ -314,3 +314,30 @@ test("无可用同方欠款或属于指定垫付时，删除计划给出关联�
     "returned",
   );
 });
+
+test("多笔同一贷款方还款按原账目分别结算，超额明确指出原账目", () => {
+  const amounts = [
+    27.73, 165.86, 51.08, 49.1, 8, 1.88, 27.16, 3.76, 22.96, 5.64, 1.88, 3.76,
+    22.96,
+  ];
+  const originals = amounts.map((amount, i) => ({
+    ...entry(`消费${i}`, "expense", amount),
+    credit: { party: "美团月付", amount },
+  }));
+  const repayment = entry(
+    "还月付",
+    "expense",
+    991.48,
+    amounts.map((amount, i) =>
+      part(`还款${i}`, "repaid", "美团月付", amount, `消费${i}:credit`),
+    ),
+  );
+  assert.doesNotThrow(() => A.validate([...originals, repayment]));
+  assert.equal(A.actualAmount(repayment), 599.71);
+  repayment.special[10].targetId = "消费5:credit";
+  assert.throws(
+    () => A.validate([...originals, repayment]),
+    (error) =>
+      error.targetId === "消费5:credit" && /超出 ¥1.88/.test(error.message),
+  );
+});

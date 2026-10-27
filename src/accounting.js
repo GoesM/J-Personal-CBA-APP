@@ -194,7 +194,12 @@
         } else if (!textOK(part.party, 60))
           throw new Error(`${tag.name}需要填写对方名称。`);
         if (tag.claim)
-          lookup.set(part.id, { ...part, date: entry.date, entryId: entry.id });
+          lookup.set(part.id, {
+            ...part,
+            date: entry.date,
+            entryId: entry.id,
+            description: entry.description,
+          });
       }
       if (allocated > cents(entry.amount))
         throw new Error("垫付、报销或债务拆分金额合计不能超过本笔总金额。");
@@ -213,6 +218,7 @@
           amount: entry.credit.amount,
           date: entry.date,
           entryId: entry.id,
+          description: entry.description,
         });
       }
     }
@@ -236,10 +242,13 @@
         if (entry.date < target.date)
           throw new Error("结算日期不能早于原始账目日期。");
         const paid = (settled.get(part.targetId) || 0) + cents(part.amount);
-        if (paid > cents(target.amount))
-          throw new Error(
-            "累计还款、收回或报销金额不能超过原始金额；利息或额外收入请作为普通收支记录。",
+        if (paid > cents(target.amount)) {
+          const error = new Error(
+            `“${target.description}”（${target.date} · ${target.party || "未指定单位"}）累计结算 ¥${(paid / 100).toFixed(2)}，超过原始金额 ¥${target.amount.toFixed(2)}，超出 ¥${((paid - cents(target.amount)) / 100).toFixed(2)}。请检查是否重复关联同一原账目；利息或额外收入请作为普通收支记录。`,
           );
+          error.targetId = part.targetId;
+          throw error;
+        }
         settled.set(part.targetId, paid);
       }
     }
