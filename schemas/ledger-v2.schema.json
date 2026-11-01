@@ -5,28 +5,48 @@
   "type": "object",
   "required": ["schemaVersion", "categories", "entries", "finance"],
   "properties": {
-    "schemaVersion": { "const": 2 },
+    "schemaVersion": {
+      "const": 2
+    },
     "categories": {
       "type": "array",
       "maxItems": 1000,
-      "items": { "$ref": "#/$defs/category" }
+      "items": {
+        "$ref": "#/$defs/category"
+      }
     },
     "entries": {
       "type": "array",
       "maxItems": 100000,
-      "items": { "$ref": "#/$defs/entry" }
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
     },
-    "finance": { "$ref": "#/$defs/finance" },
-    "analysisPreferences": { "$ref": "#/$defs/analysisPreferences" }
+    "finance": {
+      "$ref": "#/$defs/finance"
+    },
+    "analysisPreferences": {
+      "$ref": "#/$defs/analysisPreferences"
+    },
+    "partyPreferences": {
+      "$ref": "#/$defs/partyPreferences"
+    }
   },
   "$defs": {
-    "id": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
     "date": {
       "type": "string",
       "format": "date",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
     },
-    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
     "amount": {
       "type": "number",
       "minimum": 0,
@@ -43,7 +63,9 @@
       "type": "object",
       "required": ["schemaVersion", "generation"],
       "properties": {
-        "schemaVersion": { "const": 2 },
+        "schemaVersion": {
+          "const": 2
+        },
         "generation": {
           "type": "string",
           "pattern": "^g-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
@@ -54,26 +76,43 @@
       "type": "object",
       "required": ["schemaVersion", "categories", "finance"],
       "properties": {
-        "schemaVersion": { "const": 2 },
+        "schemaVersion": {
+          "const": 2
+        },
         "categories": {
           "type": "array",
           "maxItems": 1000,
-          "items": { "$ref": "#/$defs/category" }
+          "items": {
+            "$ref": "#/$defs/category"
+          }
         },
-        "finance": { "$ref": "#/$defs/finance" },
-        "analysisPreferences": { "$ref": "#/$defs/analysisPreferences" }
+        "finance": {
+          "$ref": "#/$defs/finance"
+        },
+        "analysisPreferences": {
+          "$ref": "#/$defs/analysisPreferences"
+        },
+        "partyPreferences": {
+          "$ref": "#/$defs/partyPreferences"
+        }
       }
     },
     "dayFile": {
       "type": "object",
       "required": ["schemaVersion", "date", "entries"],
       "properties": {
-        "schemaVersion": { "const": 2 },
-        "date": { "$ref": "#/$defs/date" },
+        "schemaVersion": {
+          "const": 2
+        },
+        "date": {
+          "$ref": "#/$defs/date"
+        },
         "entries": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/entry" }
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
         }
       }
     },
@@ -81,12 +120,16 @@
       "type": "object",
       "required": ["excludedCategoryIds"],
       "properties": {
-        "basis": { "enum": ["actual"] },
+        "basis": {
+          "enum": ["actual"]
+        },
         "excludedCategoryIds": {
           "type": "array",
           "maxItems": 1000,
           "uniqueItems": true,
-          "items": { "$ref": "#/$defs/id" }
+          "items": {
+            "$ref": "#/$defs/id"
+          }
         }
       }
     },
@@ -94,11 +137,25 @@
       "type": "object",
       "required": ["id", "name", "type", "color", "icon"],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "name": { "type": "string", "minLength": 1, "maxLength": 12 },
-        "type": { "enum": ["income", "expense"] },
-        "color": { "$ref": "#/$defs/color" },
-        "icon": { "type": "string", "minLength": 1, "maxLength": 4 }
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12
+        },
+        "type": {
+          "enum": ["income", "expense"]
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "icon": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4
+        }
       }
     },
     "entry": {
@@ -113,26 +170,48 @@
         "color"
       ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "type": { "enum": ["income", "expense"] },
-        "date": { "$ref": "#/$defs/date" },
-        "categoryId": { "$ref": "#/$defs/id" },
-        "description": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "amount": { "$ref": "#/$defs/positiveAmount" },
-        "color": { "$ref": "#/$defs/color" },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "enum": ["income", "expense"]
+        },
+        "date": {
+          "$ref": "#/$defs/date"
+        },
+        "categoryId": {
+          "$ref": "#/$defs/id"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "amount": {
+          "$ref": "#/$defs/positiveAmount"
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
         "special": {
           "type": "array",
           "maxItems": 50,
-          "items": { "$ref": "#/$defs/specialPart" }
+          "items": {
+            "$ref": "#/$defs/specialPart"
+          }
         },
-        "credit": { "$ref": "#/$defs/creditPayment" }
+        "credit": {
+          "$ref": "#/$defs/creditPayment"
+        }
       }
     },
     "specialPart": {
       "type": "object",
       "required": ["id", "kind", "party", "amount"],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
         "kind": {
           "enum": [
             "borrowed",
@@ -143,26 +222,47 @@
             "reimbursed"
           ]
         },
-        "party": { "type": "string", "maxLength": 60 },
-        "amount": { "$ref": "#/$defs/positiveAmount" },
-        "targetId": { "type": "string", "minLength": 1, "maxLength": 87 }
+        "party": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "amount": {
+          "$ref": "#/$defs/positiveAmount"
+        },
+        "targetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 87
+        }
       },
       "allOf": [
         {
           "if": {
             "properties": {
-              "kind": { "enum": ["repaid", "recovered", "reimbursed"] }
+              "kind": {
+                "enum": ["repaid", "recovered", "reimbursed"]
+              }
             }
           },
-          "then": { "required": ["targetId"] }
+          "then": {
+            "required": ["targetId"]
+          }
         },
         {
           "if": {
             "properties": {
-              "kind": { "enum": ["borrowed", "repaid", "lent", "recovered"] }
+              "kind": {
+                "enum": ["borrowed", "repaid", "lent", "recovered"]
+              }
             }
           },
-          "then": { "properties": { "party": { "minLength": 1 } } }
+          "then": {
+            "properties": {
+              "party": {
+                "minLength": 1
+              }
+            }
+          }
         }
       ]
     },
@@ -170,19 +270,36 @@
       "type": "object",
       "required": ["party", "amount"],
       "properties": {
-        "party": { "type": "string", "minLength": 1, "maxLength": 60 },
-        "amount": { "$ref": "#/$defs/positiveAmount" }
+        "party": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "amount": {
+          "$ref": "#/$defs/positiveAmount"
+        }
       }
     },
     "transfer": {
       "type": "object",
       "required": ["id", "type", "date", "amount", "note"],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "type": { "enum": ["deposit", "withdraw"] },
-        "date": { "$ref": "#/$defs/date" },
-        "amount": { "$ref": "#/$defs/positiveAmount" },
-        "note": { "type": "string", "maxLength": 50 }
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "enum": ["deposit", "withdraw"]
+        },
+        "date": {
+          "$ref": "#/$defs/date"
+        },
+        "amount": {
+          "$ref": "#/$defs/positiveAmount"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 50
+        }
       }
     },
     "project": {
@@ -199,29 +316,72 @@
         "status"
       ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "name": { "type": "string", "minLength": 1, "maxLength": 30 },
-        "form": { "type": "string", "minLength": 1, "maxLength": 20 },
-        "investedDate": { "$ref": "#/$defs/date" },
-        "invested": { "$ref": "#/$defs/positiveAmount" },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "form": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "investedDate": {
+          "$ref": "#/$defs/date"
+        },
+        "invested": {
+          "$ref": "#/$defs/positiveAmount"
+        },
         "maturityDate": {
-          "oneOf": [{ "const": "" }, { "$ref": "#/$defs/date" }]
+          "oneOf": [
+            {
+              "const": ""
+            },
+            {
+              "$ref": "#/$defs/date"
+            }
+          ]
         },
         "annualRate": {
           "oneOf": [
-            { "type": "null" },
-            { "type": "number", "minimum": -100, "maximum": 1000 }
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": -100,
+              "maximum": 1000
+            }
           ]
         },
-        "currentValue": { "$ref": "#/$defs/amount" },
-        "status": { "enum": ["active", "redeemed"] },
-        "redeemedDate": { "$ref": "#/$defs/date" },
-        "redeemedAmount": { "$ref": "#/$defs/amount" }
+        "currentValue": {
+          "$ref": "#/$defs/amount"
+        },
+        "status": {
+          "enum": ["active", "redeemed"]
+        },
+        "redeemedDate": {
+          "$ref": "#/$defs/date"
+        },
+        "redeemedAmount": {
+          "$ref": "#/$defs/amount"
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "status": { "const": "redeemed" } } },
-          "then": { "required": ["redeemedDate", "redeemedAmount"] }
+          "if": {
+            "properties": {
+              "status": {
+                "const": "redeemed"
+              }
+            }
+          },
+          "then": {
+            "required": ["redeemedDate", "redeemedAmount"]
+          }
         }
       ]
     },
@@ -229,17 +389,108 @@
       "type": "object",
       "required": ["initialCapital", "initialDate", "transfers", "projects"],
       "properties": {
-        "initialCapital": { "$ref": "#/$defs/amount" },
-        "initialDate": { "$ref": "#/$defs/date" },
+        "initialCapital": {
+          "$ref": "#/$defs/amount"
+        },
+        "initialDate": {
+          "$ref": "#/$defs/date"
+        },
         "transfers": {
           "type": "array",
           "maxItems": 100000,
-          "items": { "$ref": "#/$defs/transfer" }
+          "items": {
+            "$ref": "#/$defs/transfer"
+          }
         },
         "projects": {
           "type": "array",
           "maxItems": 100000,
-          "items": { "$ref": "#/$defs/project" }
+          "items": {
+            "$ref": "#/$defs/project"
+          }
+        }
+      }
+    },
+    "partyPreferences": {
+      "type": "object",
+      "properties": {
+        "credit": {
+          "type": "object",
+          "required": ["pinned", "hidden"],
+          "properties": {
+            "pinned": {
+              "type": "array",
+              "maxItems": 1000,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              }
+            },
+            "hidden": {
+              "type": "array",
+              "maxItems": 1000,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              }
+            }
+          }
+        },
+        "reimbursement": {
+          "type": "object",
+          "required": ["pinned", "hidden"],
+          "properties": {
+            "pinned": {
+              "type": "array",
+              "maxItems": 1000,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              }
+            },
+            "hidden": {
+              "type": "array",
+              "maxItems": 1000,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              }
+            }
+          }
+        },
+        "debt": {
+          "type": "object",
+          "required": ["pinned", "hidden"],
+          "properties": {
+            "pinned": {
+              "type": "array",
+              "maxItems": 1000,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              }
+            },
+            "hidden": {
+              "type": "array",
+              "maxItems": 1000,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              }
+            }
+          }
         }
       }
     }

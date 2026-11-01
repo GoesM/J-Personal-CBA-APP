@@ -278,3 +278,28 @@ test("运行中账本文件夹被移走时拒绝保存", async (t) => {
   await assert.rejects(store.save(changed), /文件夹已丢失/);
   await assert.rejects(fs.stat(root), /ENOENT/);
 });
+
+test("常用往来方分组随账本重启与导入保存，拒绝冲突设置", async (t) => {
+  const { root, temp } = await isolated(t, "cba-parties-");
+  const store = new LedgerStore(root);
+  const state = baseline();
+  state.partyPreferences = {
+    credit: { pinned: ["花呗"], hidden: ["旧卡"] },
+    reimbursement: { pinned: ["公司"], hidden: [] },
+    debt: { pinned: ["朋友"], hidden: [] },
+  };
+  await store.save(state);
+  const loaded = await new LedgerStore(root).load();
+  assert.deepEqual(loaded.partyPreferences, state.partyPreferences);
+  const imported = new LedgerStore(path.join(temp, "imported"));
+  const file = path.join(temp, "backup.json");
+  await fs.writeFile(file, JSON.stringify(loaded));
+  await imported.importFrom(file);
+  assert.deepEqual(
+    (await new LedgerStore(path.join(temp, "imported")).load())
+      .partyPreferences,
+    state.partyPreferences,
+  );
+  state.partyPreferences.credit.hidden.push("花呗");
+  assert.throws(() => validateState(state), /同时置顶与隐藏/);
+});

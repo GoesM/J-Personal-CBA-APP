@@ -79,6 +79,31 @@ function validateState(state) {
     );
     categories.set(item.id, item);
   }
+  if (state.partyPreferences === undefined) state.partyPreferences = {};
+  assert(
+    state.partyPreferences &&
+      typeof state.partyPreferences === "object" &&
+      !Array.isArray(state.partyPreferences),
+    "常用往来方设置无效",
+  );
+  for (const group of ["credit", "reimbursement", "debt"]) {
+    const prefs = state.partyPreferences[group];
+    if (prefs === undefined) continue;
+    assert(prefs && typeof prefs === "object", "常用往来方分组无效");
+    for (const key of ["pinned", "hidden"]) {
+      assert(
+        Array.isArray(prefs[key]) &&
+          prefs[key].length <= 1000 &&
+          prefs[key].every((name) => text(name, 60) && name.trim() === name) &&
+          new Set(prefs[key]).size === prefs[key].length,
+        "常用往来方名称无效或重复",
+      );
+    }
+    assert(
+      !prefs.pinned.some((name) => prefs.hidden.includes(name)),
+      "常用往来方不能同时置顶与隐藏",
+    );
+  }
   if (state.analysisPreferences === undefined)
     state.analysisPreferences = { excludedCategoryIds: [] };
   const excluded = state.analysisPreferences?.excludedCategoryIds;
@@ -213,6 +238,7 @@ const metaBody = (state) =>
     categories: state.categories,
     finance: state.finance,
     analysisPreferences: state.analysisPreferences,
+    partyPreferences: state.partyPreferences,
   });
 const dayBody = (date, entries) => json({ schemaVersion: 2, date, entries });
 
@@ -357,6 +383,7 @@ class LedgerStore {
       entries,
       finance: meta.finance,
       analysisPreferences: meta.analysisPreferences,
+      partyPreferences: meta.partyPreferences,
     });
     this.manifest = manifest;
     this.cachedState = structuredClone(state);

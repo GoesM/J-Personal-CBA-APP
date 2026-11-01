@@ -739,3 +739,164 @@ test("关联新项置顶、排除已选原账目，取消或移除后可重新�
     w.close();
   }
 });
+
+test("类别自动染色、现金流、今日余额与分组常用方设置", async () => {
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const make = (id, type, amount, extra = {}) => ({
+    id,
+    type,
+    amount,
+    date,
+    categoryId: type,
+    description: id,
+    color: "#ffffff",
+    ...extra,
+  });
+  let saved = {
+    schemaVersion: 2,
+    categories: ["income", "expense"].map((type) => ({
+      id: type,
+      name: type,
+      type,
+      color: "#123456",
+      icon: "◌",
+    })),
+    entries: [
+      make("信用消费", "expense", 100, {
+        credit: { party: "花呗", amount: 100 },
+      }),
+      make("还款", "expense", 40, {
+        special: [
+          {
+            id: "p",
+            kind: "repaid",
+            party: "花呗",
+            amount: 40,
+            targetId: "信用消费:credit",
+          },
+        ],
+      }),
+      make("垫付", "expense", 24, {
+        special: [{ id: "l", kind: "lent", party: "朋友", amount: 12 }],
+      }),
+      make("收回", "income", 5, {
+        special: [
+          {
+            id: "r",
+            kind: "recovered",
+            party: "朋友",
+            amount: 5,
+            targetId: "l",
+          },
+        ],
+      }),
+      make("差旅", "expense", 10, {
+        special: [{ id: "t", kind: "reimbursable", party: "公司", amount: 10 }],
+      }),
+      make("未来借款", "income", 900, {
+        date: "2099-01-01",
+        special: [
+          { id: "future", kind: "borrowed", party: "未来", amount: 900 },
+        ],
+      }),
+    ],
+    finance: {
+      initialCapital: 0,
+      initialDate: date,
+      transfers: [],
+      projects: [],
+    },
+    analysisPreferences: { excludedCategoryIds: [] },
+  };
+  const dom = new JSDOM(html, {
+    url: "http://localhost/",
+    runScripts: "dangerously",
+  });
+  const w = dom.window;
+  w.scrollTo = () => {};
+  w.structuredClone = structuredClone;
+  w.ledgerApi = {
+    load: async () => structuredClone(saved),
+    save: async (s) => {
+      validateState(s);
+      saved = structuredClone(s);
+    },
+    info: async () => ({}),
+    onBeforeClose: () => {},
+  };
+  w.eval(accountingScript);
+  w.eval(script);
+  await tick();
+  const $ = (s) => w.document.querySelector(s);
+  const emit = (selector, value, type = "change") => {
+    const el = $(selector);
+    el.value = value;
+    el.dispatchEvent(new w.Event(type, { bubbles: true }));
+  };
+  try {
+    assert.equal(
+      $(".entry-row").style.getPropertyValue("--entry-category-color"),
+      "#123456",
+    );
+    assert.equal($("#entry-colors"), null);
+    assert.match($("#analysis-cash-in").textContent, /5.00/);
+    assert.match($("#analysis-cash-out").textContent, /74.00/);
+    assert.match($("#analysis-expense").textContent, /112.00/);
+    const balances = $("#obligations-summary").textContent;
+    assert.match(balances, /60.00/);
+    assert(!$("#payables-list").textContent.includes("未来借款"));
+    emit("#analysis-month", "2020-01");
+    assert.equal($("#obligations-summary").textContent, balances);
+    $('[data-analysis-tab="obligations"]').click();
+    assert($("#analysis-period-content").classList.contains("hidden"));
+    assert(!$("#analysis-obligations-content").classList.contains("hidden"));
+    assert($(".analysis-controls").classList.contains("hidden"));
+    $('[data-period="year"]').click();
+    assert.equal($("#obligations-summary").textContent, balances);
+    $('[data-category-edit="expense"]').click();
+    emit("#category-color-hex", "#abcdef", "input");
+    $("#category-form").dispatchEvent(
+      new w.Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await tick();
+    assert.equal(
+      saved.categories.find((c) => c.id === "expense").color,
+      "#abcdef",
+    );
+    assert.equal(
+      $(".entry-row").style.getPropertyValue("--entry-category-color"),
+      "#abcdef",
+    );
+    $("#top-add").click();
+    assert.match($("#credit-suggestions").innerHTML, /花呗/);
+    assert(!$("#credit-suggestions").innerHTML.includes("朋友"));
+    assert.match($("#reimbursement-suggestions").innerHTML, /公司/);
+    assert(!$("#reimbursement-suggestions").innerHTML.includes("花呗"));
+    emit("#party-name", "新信用卡", "input");
+    $('[data-party-manage="pin"]').click();
+    await tick();
+    assert.equal($("#credit-suggestions").firstElementChild.value, "新信用卡");
+    const quick = [...w.document.querySelectorAll(".party-quick button")].find(
+      (b) => b.textContent.includes("新信用卡"),
+    );
+    quick.click();
+    assert.equal($("#entry-credit-party").value, "新信用卡");
+    emit("#party-name", "花呗", "input");
+    $('[data-party-manage="hide"]').click();
+    await tick();
+    assert(!$("#credit-suggestions").innerHTML.includes("花呗"));
+    assert.deepEqual(saved.partyPreferences.credit.hidden, ["花呗"]);
+    $('[data-party-manage="restore"]').click();
+    await tick();
+    assert.match($("#credit-suggestions").innerHTML, /花呗/);
+    emit("#party-group", "reimbursement");
+    emit("#party-name", "新单位", "input");
+    $('[data-party-manage="pin"]').click();
+    await tick();
+    assert.match($("#reimbursement-suggestions").innerHTML, /新单位/);
+    assert(!$("#credit-suggestions").innerHTML.includes("新单位"));
+  } finally {
+    w.close();
+  }
+});

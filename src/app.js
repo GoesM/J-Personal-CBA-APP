@@ -3,14 +3,6 @@
   "use strict";
   const Accounting = window.LedgerAccounting;
   const STORAGE_KEY = "shiguang-ledger-local-v2";
-  const ENTRY_COLORS = [
-    "#e7f0e6",
-    "#f8eadd",
-    "#e5edf5",
-    "#f2e7ef",
-    "#f3f0df",
-    "#e7eee9",
-  ];
   const CATEGORY_COLORS = [
     "#87ad8f",
     "#e3a681",
@@ -282,7 +274,7 @@
                 .map((item) => {
                   const cat = category(item.categoryId);
                   const special = item.special?.length || item.credit;
-                  return `<div class="entry-row"><div class="entry-swatch" style="background:${escapeHTML(item.color)}">${escapeHTML(cat?.icon || "◌")}</div><div class="entry-main"><strong>${escapeHTML(item.description)}</strong><small>${escapeHTML(cat?.name || "未分类")} · ${item.type === "income" ? "收入" : "支出"}</small>${special ? `<div class="entry-breakdown">${escapeHTML(specialSummary(item))}<br>本笔现金${item.type === "income" ? "流入" : "流出"} ${money(Accounting.cashAmount(item))}</div>` : ""}</div><div class="entry-amount ${item.type}">${item.type === "income" ? "+" : "−"}${money(item.amount)}${item.credit ? "<small>含信用付款</small>" : ""}</div><div class="entry-actions"><button data-entry-edit="${escapeHTML(item.id)}" type="button" aria-label="编辑${escapeHTML(item.description)}">编辑</button><button class="delete-action" data-entry-delete="${escapeHTML(item.id)}" type="button" aria-label="删除${escapeHTML(item.description)}">删除</button></div></div>`;
+                  return `<div class="entry-row" style="--entry-category-color:${escapeHTML(cat?.color || "#87ad8f")}"><div class="entry-swatch" style="background:${escapeHTML(cat?.color || "#87ad8f")}22;color:${escapeHTML(cat?.color || "#87ad8f")}">${escapeHTML(cat?.icon || "◌")}</div><div class="entry-main"><strong>${escapeHTML(item.description)}</strong><small>${escapeHTML(cat?.name || "未分类")} · ${item.type === "income" ? "收入" : "支出"}</small>${special ? `<div class="entry-breakdown">${escapeHTML(specialSummary(item))}<br>本笔现金${item.type === "income" ? "流入" : "流出"} ${money(Accounting.cashAmount(item))}</div>` : ""}</div><div class="entry-amount ${item.type}">${item.type === "income" ? "+" : "−"}${money(item.amount)}${item.credit ? "<small>含信用付款</small>" : ""}</div><div class="entry-actions"><button data-entry-edit="${escapeHTML(item.id)}" type="button" aria-label="编辑${escapeHTML(item.description)}">编辑</button><button class="delete-action" data-entry-delete="${escapeHTML(item.id)}" type="button" aria-label="删除${escapeHTML(item.description)}">删除</button></div></div>`;
                 })
                 .join("")}</div>`,
           )
@@ -313,16 +305,11 @@
     return [...grouped.values()].sort((a, b) => b.amount - a.amount);
   }
 
-  function analysisCutoff() {
-    if (analysisPeriod === "year") return `${analysisYear}-12-31`;
-    const [year, month] = analysisMonth.split("-").map(Number);
-    return `${analysisMonth}-${pad(new Date(year, month, 0).getDate())}`;
-  }
   function renderObligations() {
-    const cutoff = analysisCutoff();
+    const cutoff = today();
     const report = Accounting.balances(state.entries, cutoff);
     $("#obligations-cutoff").textContent =
-      `截至 ${cutoff} 的全历史累计余额，包含本期之前未结清的往来。`;
+      `截至 ${cutoff} 的全历史累计余额，不受所选月份／年份影响。`;
     const total = (claims) => sum(claims, (claim) => claim.remaining);
     $("#obligations-summary").innerHTML = [
       ["我尚未还清", total(report.claims.filter((c) => c.kind === "borrowed"))],
@@ -421,6 +408,18 @@
     $("#analysis-net").textContent = money(net);
     $("#analysis-income").textContent = money(income);
     $("#analysis-expense").textContent = money(expense);
+    $("#analysis-cash-in").textContent = money(
+      sum(
+        originalItems.filter((e) => e.type === "income"),
+        Accounting.cashAmount,
+      ),
+    );
+    $("#analysis-cash-out").textContent = money(
+      sum(
+        originalItems.filter((e) => e.type === "expense"),
+        Accounting.cashAmount,
+      ),
+    );
     $("#analysis-status").textContent =
       net >= 0 ? "收入高于支出，结余为正" : "支出高于收入，结余为负";
     $("#trend-title").textContent =
@@ -752,14 +751,119 @@
       if (button) onSelect(button.dataset.color);
     };
   }
-  let entryColor = ENTRY_COLORS[0],
-    categoryColor = CATEGORY_COLORS[0];
+  let categoryColor = CATEGORY_COLORS[0];
   let draftSpecial = [];
   function draftClaims() {
     return Accounting.claims(
       state.entries.filter((e) => e.id !== $("#entry-id").value),
     );
   }
+  function partyPreferences(group) {
+    state.partyPreferences ||= {};
+    return (state.partyPreferences[group] ||= { pinned: [], hidden: [] });
+  }
+  function partyChoices(group) {
+    const counts = new Map();
+    for (const entry of state.entries) {
+      const names =
+        group === "credit"
+          ? [entry.credit?.party]
+          : (entry.special || [])
+              .filter(
+                (p) =>
+                  (p.kind.startsWith("reimburs") ? "reimbursement" : "debt") ===
+                  group,
+              )
+              .map((p) => p.party);
+      for (const name of new Set(names.filter(Boolean))) {
+        const old = counts.get(name) || { count: 0, date: "" };
+        counts.set(name, {
+          count: old.count + 1,
+          date: entry.date > old.date ? entry.date : old.date,
+        });
+      }
+    }
+    const prefs = partyPreferences(group);
+    return [...new Set([...prefs.pinned, ...counts.keys()])]
+      .filter((name) => !prefs.hidden.includes(name))
+      .sort(
+        (a, b) =>
+          Number(prefs.pinned.includes(b)) - Number(prefs.pinned.includes(a)) ||
+          (counts.get(b)?.count || 0) - (counts.get(a)?.count || 0) ||
+          (counts.get(b)?.date || "").localeCompare(
+            counts.get(a)?.date || "",
+          ) ||
+          a.localeCompare(b),
+      );
+  }
+  function renderPartyChoices() {
+    for (const group of ["credit", "reimbursement", "debt"]) {
+      $("#" + group + "-suggestions").innerHTML = partyChoices(group)
+        .map((name) => `<option value="${escapeHTML(name)}"></option>`)
+        .join("");
+    }
+    $("#entry-credit-party").dataset.partyGroup = "credit";
+    $$(".party-quick").forEach((el) => el.remove());
+    $$("input[data-party-group]")
+      .filter((input) => !input.readOnly)
+      .forEach((input) => {
+        const group = input.dataset.partyGroup;
+        const quick = document.createElement("div");
+        quick.className = "party-quick";
+        for (const name of partyChoices(group).slice(0, 6)) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent =
+            (partyPreferences(group).pinned.includes(name) ? "★ " : "") + name;
+          button.addEventListener("click", () => {
+            input.value = name;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.focus();
+          });
+          quick.append(button);
+        }
+        input.closest(".field").append(quick);
+      });
+    renderPartyManager();
+  }
+  function renderPartyManager() {
+    const prefs = partyPreferences($("#party-group").value);
+    $("#party-managed-list").innerHTML =
+      [
+        ...prefs.pinned.map((name) => [name, "unpin", "取消置顶"]),
+        ...prefs.hidden.map((name) => [name, "restore", "恢复推荐"]),
+      ]
+        .map(
+          ([name, action, label]) =>
+            `<div><span>${escapeHTML(name)}</span><button type="button" data-party-manage="${action}" data-party-name="${escapeHTML(name)}">${label}</button></div>`,
+        )
+        .join("") ||
+      '<p class="form-hint">暂无手动设置，当前使用自动推荐。</p>';
+  }
+  $("#party-group").addEventListener("change", renderPartyManager);
+  $(".party-manager").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-party-manage]");
+    if (!button) return;
+    const name = (button.dataset.partyName || $("#party-name").value).trim();
+    if (!name || name.length > 60) return toast("请输入 1–60 字的名称。");
+    const previous = structuredClone(state.partyPreferences);
+    const prefs = partyPreferences($("#party-group").value);
+    const action = button.dataset.partyManage;
+    prefs.pinned = prefs.pinned.filter((n) => n !== name);
+    prefs.hidden = prefs.hidden.filter((n) => n !== name);
+    if (action === "pin") prefs.pinned.push(name);
+    if (action === "hide") prefs.hidden.push(name);
+    button.disabled = true;
+    try {
+      await save();
+      $("#party-name").value = "";
+    } catch {
+      state.partyPreferences = previous;
+    } finally {
+      button.disabled = false;
+      renderPartyChoices();
+    }
+  });
   function renderSpecialRows() {
     const type = $("#entry-type").value;
     $("#credit-controls").classList.toggle("hidden", type !== "expense");
@@ -796,22 +900,11 @@
               )
               .join("")
           : "";
-        return `<div class="special-row" data-special-index="${index}"><div class="special-row-head"><strong>${tag.name}</strong><button type="button" class="delete-action" data-remove-special="${index}" aria-label="移除${tag.name}明细">移除</button></div>${tag.target ? `<div class="field"><label>关联原始账目 <em>*</em><select data-special-field="targetId" aria-label="${tag.name}关联原始账目"><option value="">请选择（可跨月关联）</option>${options}</select></label></div>` : ""}<div class="field-grid"><div class="field"><label>${tag.party}<input data-special-field="party" value="${escapeHTML(part.party)}" maxlength="60" list="party-suggestions" ${tag.target && claims.find((c) => c.id === part.targetId)?.party ? "readonly" : ""} placeholder="${part.kind === "reimbursable" ? "例如：公司差旅" : "名称需与之前保持一致"}" aria-label="${tag.name}对方"></label></div><div class="field"><label>金额 <em>*</em><input data-special-field="amount" type="number" min="0.01" max="1000000000" step="0.01" value="${part.amount || ""}" aria-label="${tag.name}金额"></label></div></div></div>`;
+        return `<div class="special-row" data-special-index="${index}"><div class="special-row-head"><strong>${tag.name}</strong><button type="button" class="delete-action" data-remove-special="${index}" aria-label="移除${tag.name}明细">移除</button></div>${tag.target ? `<div class="field"><label>关联原始账目 <em>*</em><select data-special-field="targetId" aria-label="${tag.name}关联原始账目"><option value="">请选择（可跨月关联）</option>${options}</select></label></div>` : ""}<div class="field-grid"><div class="field"><label>${tag.party}<input data-special-field="party" value="${escapeHTML(part.party)}" maxlength="60" list="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}-suggestions" data-party-group="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}" ${tag.target && claims.find((c) => c.id === part.targetId)?.party ? "readonly" : ""} placeholder="${part.kind === "reimbursable" ? "例如：公司差旅" : "名称需与之前保持一致"}" aria-label="${tag.name}对方"></label></div><div class="field"><label>金额 <em>*</em><input data-special-field="amount" type="number" min="0.01" max="1000000000" step="0.01" value="${part.amount || ""}" aria-label="${tag.name}金额"></label></div></div></div>`;
       })
       .reverse()
       .join("");
-    const parties = new Set(
-      state.entries
-        .flatMap((e) => [
-          ...(e.special || []).map((p) => p.party),
-          e.credit?.party,
-        ])
-        .filter(Boolean),
-    );
-    $("#party-suggestions").innerHTML = [...parties]
-      .sort()
-      .map((party) => `<option value="${escapeHTML(party)}"></option>`)
-      .join("");
+    renderPartyChoices();
     renderSplitPreview();
   }
   function readEntrySpecial() {
@@ -923,13 +1016,8 @@
         ...(Accounting.TAGS[legacy].target ? { targetId: "" } : {}),
       });
     renderSpecialRows();
-    entryColor = item?.color || ENTRY_COLORS[0];
-    renderColors("#entry-colors", ENTRY_COLORS, entryColor, updateEntryColors);
+
     showModal("#entry-modal");
-  }
-  function updateEntryColors(value) {
-    entryColor = value;
-    renderColors("#entry-colors", ENTRY_COLORS, entryColor, updateEntryColors);
   }
   function openCategory(id = null) {
     const item = state.categories.find((candidate) => candidate.id === id);
@@ -942,6 +1030,7 @@
     );
     $("#category-name").value = item?.name || "";
     categoryColor = item?.color || CATEGORY_COLORS[0];
+    updateCategoryColors(categoryColor);
     renderColors(
       "#category-colors",
       CATEGORY_COLORS,
@@ -952,6 +1041,8 @@
   }
   function updateCategoryColors(value) {
     categoryColor = value;
+    $("#category-color-picker").value = value;
+    $("#category-color-hex").value = value;
     renderColors(
       "#category-colors",
       CATEGORY_COLORS,
@@ -1171,6 +1262,26 @@
     );
     if (kind) addSpecial(kind);
   });
+  $$("[data-analysis-tab]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const period = button.dataset.analysisTab === "period";
+      $("#analysis-period-content").classList.toggle("hidden", !period);
+      $("#analysis-obligations-content").classList.toggle("hidden", period);
+      $(".analysis-controls").classList.toggle("hidden", !period);
+      $$("[data-analysis-tab]").forEach((b) => {
+        b.classList.toggle("active", b === button);
+        b.setAttribute("aria-pressed", String(b === button));
+      });
+      renderObligations();
+    }),
+  );
+  $("#category-color-picker").addEventListener("input", (e) =>
+    updateCategoryColors(e.target.value),
+  );
+  $("#category-color-hex").addEventListener("input", (e) => {
+    if (/^#[0-9a-fA-F]{6}$/.test(e.target.value))
+      updateCategoryColors(e.target.value);
+  });
   $("#entry-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const amount = numeric($("#entry-amount").value);
@@ -1186,7 +1297,7 @@
       date: $("#entry-date").value,
       categoryId,
       description: $("#entry-description").value.trim(),
-      color: entryColor,
+      color: category(categoryId).color,
     };
     if (draftSpecial.length) entry.special = readEntrySpecial();
     if (draftCredit()) entry.credit = draftCredit();

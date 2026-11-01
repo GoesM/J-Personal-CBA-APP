@@ -193,81 +193,120 @@
               /><select id="analysis-year" aria-label="分析年份"></select>
             </div>
           </div>
-          <div class="analysis-hero">
-            <div>
-              <div class="eyebrow">NET BALANCE</div>
-              <p id="analysis-period-label">本月净结余</p>
-              <div class="hero-number" id="analysis-net">¥ 0.00</div>
-              <div class="hero-sub" id="analysis-status">收入减去支出</div>
-            </div>
-            <div class="hero-split">
+          <nav class="analysis-tabs segmented" aria-label="分析内容">
+            <button
+              type="button"
+              class="active"
+              data-analysis-tab="period"
+              aria-pressed="true"
+            >
+              期间统计</button
+            ><button
+              type="button"
+              data-analysis-tab="obligations"
+              aria-pressed="false"
+            >
+              债务与报销
+            </button>
+          </nav>
+          <div id="analysis-period-content">
+            <div class="analysis-hero">
               <div>
-                <span>收入</span><strong id="analysis-income">¥ 0.00</strong>
+                <div class="eyebrow">NET BALANCE</div>
+                <p id="analysis-period-label">本月净结余</p>
+                <div class="hero-number" id="analysis-net">¥ 0.00</div>
+                <div class="hero-sub" id="analysis-status">收入减去支出</div>
               </div>
-              <div>
-                <span>支出</span><strong id="analysis-expense">¥ 0.00</strong>
-              </div>
-            </div>
-          </div>
-          <div class="analysis-basis">
-            <p id="analysis-basis-hint"></p>
-          </div>
-          <div class="analysis-columns">
-            <div class="analysis-column" aria-label="普通收支统计">
-              <section class="panel chart-panel">
-                <div class="panel-head">
-                  <div>
-                    <div class="eyebrow">CASH FLOW</div>
-                    <h2 id="trend-title">每周收支</h2>
-                  </div>
-                  <div class="chart-legend">
-                    <span><i class="legend-income"></i>收入</span
-                    ><span><i class="legend-expense"></i>支出</span>
-                  </div>
+              <div class="hero-split">
+                <div>
+                  <span>实际收入</span
+                  ><strong id="analysis-income">¥ 0.00</strong>
                 </div>
-                <div id="trend-chart" class="trend-chart"></div>
-              </section>
-              <section class="panel distribution-panel">
-                <div class="eyebrow">EXPENSES</div>
-                <h2>支出去向</h2>
-                <p class="distribution-hint">选择参与占比计算的支出类别</p>
-                <div
-                  id="expense-category-filter"
-                  class="distribution-controls"
-                ></div>
-                <div id="expense-distribution"></div>
-              </section>
-              <section class="panel distribution-panel">
-                <div class="eyebrow">INCOME</div>
-                <h2>收入来源</h2>
-                <p class="distribution-hint">选择参与占比计算的收入类别</p>
-                <div
-                  id="income-category-filter"
-                  class="distribution-controls"
-                ></div>
-                <div id="income-distribution"></div>
-              </section>
+                <div>
+                  <span>实际支出</span
+                  ><strong id="analysis-expense">¥ 0.00</strong>
+                </div>
+              </div>
             </div>
-            <div class="analysis-column flow-grid" aria-label="独立金钱流统计">
-              <section class="panel distribution-panel">
-                <h2>借出 — 收回</h2>
-                <p>本期垫付、借出与收回本金的发生额，不计收入支出。</p>
-                <div id="receivable-flow"></div>
-              </section>
-              <section class="panel distribution-panel">
-                <h2>借入 — 还出</h2>
-                <p>本期借入与偿还本金的发生额，不计收入支出。</p>
-                <div id="payable-flow"></div>
-                <p id="credit-flow-note" class="form-hint"></p>
-              </section>
-              <section class="panel distribution-panel">
-                <h2>可报销 — 报销到账</h2>
-                <p>本期可报销支出与报销到账的发生额，不计收入支出。</p>
-                <div id="reimbursement-flow"></div>
-              </section>
+            <div class="cash-summary">
+              <div>
+                <span>现金流入</span
+                ><strong id="analysis-cash-in">¥ 0.00</strong>
+              </div>
+              <div>
+                <span>现金流出</span
+                ><strong id="analysis-cash-out">¥ 0.00</strong>
+              </div>
+              <small
+                >含债务与报销资金往来；信用消费在实际还款时计现金流出，不含理财模块划转。</small
+              >
+            </div>
+            <div class="analysis-basis">
+              <p id="analysis-basis-hint"></p>
+            </div>
+            <div class="analysis-columns">
+              <div class="analysis-column" aria-label="普通收支统计">
+                <section class="panel chart-panel">
+                  <div class="panel-head">
+                    <div>
+                      <div class="eyebrow">CASH FLOW</div>
+                      <h2 id="trend-title">每周收支</h2>
+                    </div>
+                    <div class="chart-legend">
+                      <span><i class="legend-income"></i>收入</span
+                      ><span><i class="legend-expense"></i>支出</span>
+                    </div>
+                  </div>
+                  <div id="trend-chart" class="trend-chart"></div>
+                </section>
+                <section class="panel distribution-panel">
+                  <div class="eyebrow">EXPENSES</div>
+                  <h2>支出去向</h2>
+                  <p class="distribution-hint">选择参与占比计算的支出类别</p>
+                  <div
+                    id="expense-category-filter"
+                    class="distribution-controls"
+                  ></div>
+                  <div id="expense-distribution"></div>
+                </section>
+                <section class="panel distribution-panel">
+                  <div class="eyebrow">INCOME</div>
+                  <h2>收入来源</h2>
+                  <p class="distribution-hint">选择参与占比计算的收入类别</p>
+                  <div
+                    id="income-category-filter"
+                    class="distribution-controls"
+                  ></div>
+                  <div id="income-distribution"></div>
+                </section>
+              </div>
+              <div
+                class="analysis-column flow-grid"
+                aria-label="独立金钱流统计"
+              >
+                <section class="panel distribution-panel">
+                  <h2>借出 — 收回</h2>
+                  <p>本期垫付、借出与收回本金的发生额，不计收入支出。</p>
+                  <div id="receivable-flow"></div>
+                </section>
+                <section class="panel distribution-panel">
+                  <h2>借入 — 还出</h2>
+                  <p>本期借入与偿还本金的发生额，不计收入支出。</p>
+                  <div id="payable-flow"></div>
+                  <p id="credit-flow-note" class="form-hint"></p>
+                </section>
+                <section class="panel distribution-panel">
+                  <h2>可报销 — 报销到账</h2>
+                  <p>本期可报销支出与报销到账的发生额，不计收入支出。</p>
+                  <div id="reimbursement-flow"></div>
+                </section>
+              </div>
             </div>
           </div>
-          <section class="panel obligations-panel">
+          <section
+            class="panel obligations-panel hidden"
+            id="analysis-obligations-content"
+          >
             <div class="panel-head">
               <div>
                 <div class="eyebrow">DEBTS & REIMBURSEMENTS</div>
@@ -611,8 +650,8 @@
             <h3>付款与往来 <span class="tag-lock">选填</span></h3>
             <div id="credit-controls">
               <label class="credit-toggle"
-                ><input id="entry-credit-enabled" type="checkbox" /> 使用花呗 /
-                月付 / 信用借款付款</label
+                ><input id="entry-credit-enabled" type="checkbox" />
+                信用付款（使用花呗/月付/信用卡付款）</label
               >
               <div id="entry-credit-fields" class="field-grid hidden">
                 <div class="field">
@@ -620,7 +659,7 @@
                   ><input
                     id="entry-credit-party"
                     maxlength="60"
-                    list="party-suggestions"
+                    list="credit-suggestions"
                     placeholder="例如：花呗"
                   />
                 </div>
@@ -641,7 +680,27 @@
               添加金额明细，剩余部分自动作为自己的收支。信用付款单独记录欠款，可与垫付、报销同时使用。
             </p>
             <div id="entry-special-actions" class="entry-special-actions"></div>
-            <datalist id="party-suggestions"></datalist>
+            <datalist id="credit-suggestions"></datalist
+            ><datalist id="debt-suggestions"></datalist
+            ><datalist id="reimbursement-suggestions"></datalist>
+            <details class="party-manager">
+              <summary>管理常用往来方</summary>
+              <p class="form-hint">
+                自动按使用次数与最近使用推荐。可手动置顶或隐藏，设置随账本保存。
+              </p>
+              <select id="party-group" aria-label="往来方分组">
+                <option value="credit">信用付款方</option>
+                <option value="reimbursement">报销方</option>
+                <option value="debt">债务往来方</option></select
+              ><input
+                id="party-name"
+                maxlength="60"
+                placeholder="输入名称"
+                aria-label="常用往来方名称"
+              /><button type="button" data-party-manage="pin">置顶</button
+              ><button type="button" data-party-manage="hide">隐藏推荐</button>
+              <div id="party-managed-list"></div>
+            </details>
             <div id="entry-special-rows"></div>
             <div
               id="entry-split-preview"
@@ -649,15 +708,7 @@
               aria-live="polite"
             ></div>
           </section>
-          <div class="field">
-            <label>账目背景色</label>
-            <div
-              class="color-options"
-              id="entry-colors"
-              role="radiogroup"
-              aria-label="账目背景色"
-            ></div>
-          </div>
+          <p class="form-hint">账目颜色跟随所选类别，可在类别管理中自定义。</p>
           <div class="modal-actions">
             <button type="button" class="secondary-button close-modal">
               取消</button
@@ -707,6 +758,20 @@
           </div>
           <div class="field">
             <label>类别颜色</label>
+            <div class="custom-color">
+              <input
+                id="category-color-picker"
+                type="color"
+                aria-label="任意类别颜色"
+              /><input
+                id="category-color-hex"
+                aria-label="HEX 色值"
+                pattern="#[0-9a-fA-F]{6}"
+                maxlength="7"
+                required
+                placeholder="#87ad8f"
+              />
+            </div>
             <div
               class="color-options"
               id="category-colors"
