@@ -843,6 +843,37 @@ test("类别自动染色、现金流、今日余额与分组常用方设置", as
     assert.match($("#analysis-cash-in").textContent, /5.00/);
     assert.match($("#analysis-cash-out").textContent, /74.00/);
     assert.match($("#analysis-expense").textContent, /112.00/);
+    const creditBadge = $('#page-ledger [data-flow-kind="credit"]');
+    assert(creditBadge);
+    assert(!/[↗↙]/.test(creditBadge.textContent));
+    assert.match($("#page-ledger").textContent, /部分结清/);
+    assert.match(
+      $('#page-ledger [data-flow-kind="lent"]').textContent,
+      /↗ 借出/,
+    );
+    const styleForm = $('[data-flow-style="receivable"]');
+    styleForm.elements.hex.value = "#ef1234";
+    styleForm.dispatchEvent(
+      new w.Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await tick();
+    assert.equal(saved.flowStyles.receivable, "#ef1234");
+    assert.equal(
+      $('#page-ledger [data-flow-kind="lent"]').style.getPropertyValue(
+        "--flow-color",
+      ),
+      "#ef1234",
+    );
+    assert.match($("#receivable-flow .donut").getAttribute("style"), /#ef1234/);
+    assert.equal(
+      $('#page-ledger [data-flow-kind="credit"]').style.getPropertyValue(
+        "--flow-color",
+      ),
+      "#8864b4",
+    );
+    $('[data-flow-reset="receivable"]').click();
+    await tick();
+    assert.equal(saved.flowStyles.receivable, "#cc7938");
     const balances = $("#obligations-summary").textContent;
     assert.match(balances, /60.00/);
     assert(!$("#payables-list").textContent.includes("未来借款"));

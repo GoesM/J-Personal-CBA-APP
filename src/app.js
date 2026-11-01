@@ -145,6 +145,72 @@
     entries
       .map((item) => ({ ...item, amount: Accounting.actualAmount(item) }))
       .filter((item) => item.amount > 0);
+  const FLOW_STYLES = {
+    receivable: { name: "借出与收回", color: "#cc7938" },
+    payable: { name: "借入与还出／信用付款", color: "#8864b4" },
+    reimbursement: { name: "可报销与报销到账", color: "#467fb7" },
+  };
+  const flowGroup = (kind) =>
+    ["lent", "recovered"].includes(kind)
+      ? "receivable"
+      : ["borrowed", "repaid", "credit"].includes(kind)
+        ? "payable"
+        : "reimbursement";
+  const flowColor = (kind) =>
+    state.flowStyles?.[flowGroup(kind)] || FLOW_STYLES[flowGroup(kind)].color;
+  const flowLabel = (kind) =>
+    ({
+      lent: "↗ 借出",
+      recovered: "↙ 收回",
+      borrowed: "↙ 借入",
+      repaid: "↗ 还出",
+      reimbursable: "↗ 可报销",
+      reimbursed: "↙ 报销到账",
+      credit: "信用付款",
+    })[kind];
+  const flowBadge = (kind, detail = "") =>
+    `<span class="flow-badge" data-flow-kind="${kind}" style="--flow-color:${flowColor(kind)}">${flowLabel(kind)}${detail ? ` · ${escapeHTML(detail)}` : ""}</span>`;
+  const settlementStatus = (claim) =>
+    claim.remaining <= 0 ? "已结清" : claim.settled > 0 ? "部分结清" : "未结清";
+  function entryBadges(entry, claims) {
+    const details = (entry.special || []).map((part) => {
+      const claim = claims.get(part.id);
+      return (
+        flowBadge(
+          part.kind,
+          [part.party, money(part.amount)].filter(Boolean).join(" · "),
+        ) +
+        (claim
+          ? `<span class="flow-status">${settlementStatus(claim)}</span>`
+          : "")
+      );
+    });
+    if (entry.credit) {
+      const claim = claims.get(`${entry.id}:credit`);
+      details.push(
+        flowBadge(
+          "credit",
+          `${entry.credit.party} · ${money(entry.credit.amount)}`,
+        ) +
+          (claim
+            ? `<span class="flow-status">${settlementStatus(claim)}</span>`
+            : ""),
+      );
+    }
+    return `<div class="flow-badges">${details.map((d) => `<span class="flow-detail">${d}</span>`).join("")}</div><span>自己${entry.type === "expense" ? "支出" : "收入"} ${money(Accounting.actualAmount(entry))}</span>`;
+  }
+  function lightFlowColor(color) {
+    return (
+      "#" +
+      [1, 3, 5]
+        .map((i) =>
+          Math.round(parseInt(color.slice(i, i + 2), 16) * 0.4 + 255 * 0.6)
+            .toString(16)
+            .padStart(2, "0"),
+        )
+        .join("")
+    );
+  }
   const specialSummary = (entry) =>
     Accounting.components(entry)
       .map(
@@ -210,6 +276,9 @@
     return state.entries.filter((entry) => entry.date.startsWith(month));
   }
   function renderLedger() {
+    const claimMap = new Map(
+      Accounting.claims(state.entries, today()).map((c) => [c.id, c]),
+    );
     $("#ledger-month").value = ledgerMonth;
     const current = monthEntries(ledgerMonth);
     const income = sum(
@@ -274,7 +343,7 @@
                 .map((item) => {
                   const cat = category(item.categoryId);
                   const special = item.special?.length || item.credit;
-                  return `<div class="entry-row" style="--entry-category-color:${escapeHTML(cat?.color || "#87ad8f")}"><div class="entry-swatch" style="background:${escapeHTML(cat?.color || "#87ad8f")}22;color:${escapeHTML(cat?.color || "#87ad8f")}">${escapeHTML(cat?.icon || "◌")}</div><div class="entry-main"><strong>${escapeHTML(item.description)}</strong><small>${escapeHTML(cat?.name || "未分类")} · ${item.type === "income" ? "收入" : "支出"}</small>${special ? `<div class="entry-breakdown">${escapeHTML(specialSummary(item))}<br>本笔现金${item.type === "income" ? "流入" : "流出"} ${money(Accounting.cashAmount(item))}</div>` : ""}</div><div class="entry-amount ${item.type}">${item.type === "income" ? "+" : "−"}${money(item.amount)}${item.credit ? "<small>含信用付款</small>" : ""}</div><div class="entry-actions"><button data-entry-edit="${escapeHTML(item.id)}" type="button" aria-label="编辑${escapeHTML(item.description)}">编辑</button><button class="delete-action" data-entry-delete="${escapeHTML(item.id)}" type="button" aria-label="删除${escapeHTML(item.description)}">删除</button></div></div>`;
+                  return `<div class="entry-row" style="--entry-category-color:${escapeHTML(cat?.color || "#87ad8f")}"><div class="entry-swatch" style="background:${escapeHTML(cat?.color || "#87ad8f")}22;color:${escapeHTML(cat?.color || "#87ad8f")}">${escapeHTML(cat?.icon || "◌")}</div><div class="entry-main"><strong>${escapeHTML(item.description)}</strong><small>${escapeHTML(cat?.name || "未分类")} · ${item.type === "income" ? "收入" : "支出"}</small>${special ? `<div class="entry-breakdown">${entryBadges(item, claimMap)}<br>本笔现金${item.type === "income" ? "流入" : "流出"} ${money(Accounting.cashAmount(item))}</div>` : ""}</div><div class="entry-amount ${item.type}">${item.type === "income" ? "+" : "−"}${money(item.amount)}${item.credit ? "<small>含信用付款</small>" : ""}</div><div class="entry-actions"><button data-entry-edit="${escapeHTML(item.id)}" type="button" aria-label="编辑${escapeHTML(item.description)}">编辑</button><button class="delete-action" data-entry-delete="${escapeHTML(item.id)}" type="button" aria-label="删除${escapeHTML(item.description)}">删除</button></div></div>`;
                 })
                 .join("")}</div>`,
           )
@@ -337,7 +406,7 @@
         lent: "记收回",
         reimbursable: "记报销",
       }[claim.kind];
-      return `<div class="obligation-record"><div><button class="text-link" type="button" data-obligation-edit="${escapeHTML(claim.entryId)}">${escapeHTML(claim.description)}</button><small>${claim.date}${claim.credit ? " · 信用付款" : ""}${claim.party ? ` · ${escapeHTML(claim.party)}` : ""}</small></div><div class="obligation-amounts"><span>原额 <b>${money(claim.amount)}</b></span><span>${claim.kind === "reimbursable" ? "已到账" : "已结算"} <b>${money(claim.settled)}</b></span><span>未结清 <b>${money(claim.remaining)}</b></span></div>${claim.remaining > 0 ? `<button type="button" class="secondary-button" data-settle="${escapeHTML(claim.id)}" data-settle-kind="${kind}">${action}</button>` : '<span class="settled-badge">已结清</span>'}</div>${claim.settlements.length ? `<details class="settlement-history"><summary>${claim.settlements.length} 笔结算记录</summary>${claim.settlements.map((s) => `<div><button class="text-link" type="button" data-obligation-edit="${escapeHTML(s.entryId)}">${s.date} · ${escapeHTML(s.description)}</button><strong>${money(s.amount)}</strong></div>`).join("")}</details>` : ""}`;
+      return `<div class="obligation-record" style="--flow-color:${flowColor(claim.kind)}"><div>${flowBadge(claim.credit ? "credit" : claim.kind)} <span class="flow-status">${settlementStatus(claim)}</span><br><button class="text-link" type="button" data-obligation-edit="${escapeHTML(claim.entryId)}">${escapeHTML(claim.description)}</button><small>${claim.date}${claim.credit ? " · 信用付款" : ""}${claim.party ? ` · ${escapeHTML(claim.party)}` : ""}</small></div><div class="obligation-amounts"><span>原额 <b>${money(claim.amount)}</b></span><span>${claim.kind === "reimbursable" ? "已到账" : "已结算"} <b>${money(claim.settled)}</b></span><span>未结清 <b>${money(claim.remaining)}</b></span></div>${claim.remaining > 0 ? `<button type="button" class="secondary-button" data-settle="${escapeHTML(claim.id)}" data-settle-kind="${kind}">${action}</button>` : '<span class="settled-badge">已结清</span>'}</div>${claim.settlements.length ? `<details class="settlement-history"><summary>${claim.settlements.length} 笔结算记录</summary>${claim.settlements.map((s) => `<div><button class="text-link" type="button" data-obligation-edit="${escapeHTML(s.entryId)}">${s.date} · ${escapeHTML(s.description)}</button><strong>${money(s.amount)}</strong></div>`).join("")}</details>` : ""}`;
     };
     for (const [kind, selector] of [
       ["borrowed", "#payables-list"],
@@ -532,7 +601,8 @@
       ["reimbursement-flow", ["reimbursable", "reimbursed"]],
     ]) {
       const total = sum(kinds, (kind) => totals[kind]);
-      const colors = ["#d5a16a", "#729c8a"];
+      const base = flowColor(kinds[0]);
+      const colors = [base, lightFlowColor(base)];
       const percent = total ? (totals[kinds[0]] / total) * 100 : 0;
       const chart = total
         ? '<div class="donut" role="img" aria-label="本期往来发生额占比" style="background:conic-gradient(' +
@@ -557,7 +627,7 @@
               '<div class="distribution-row"><span><i style="background:' +
               colors[i] +
               '"></i>' +
-              escapeHTML(Accounting.TAGS[kind].name) +
+              flowBadge(kind) +
               "</span><strong>" +
               money(totals[kind]) +
               " · " +
@@ -576,8 +646,14 @@
   function renderCategories() {
     $("#fixed-tags-list").innerHTML = Accounting.FLOW_CATEGORIES.map(
       (tag) =>
-        `<div><strong>${tag.name}</strong><small>${tag.type === "expense" ? "流出" : "流入"} · 金钱流固定类别，不计普通收支</small></div>`,
+        `<div><strong>${flowBadge(tag.kind)}</strong><small>${tag.type === "expense" ? "流出" : "流入"} · 金钱流固定类别，不计普通收支</small></div>`,
     ).join("");
+    $("#flow-style-controls").innerHTML = Object.entries(FLOW_STYLES)
+      .map(([group, style]) => {
+        const color = state.flowStyles?.[group] || style.color;
+        return `<form class="flow-style-form" data-flow-style="${group}"><label>${style.name}<input type="color" name="color" value="${color}" aria-label="${style.name}颜色"></label><input name="hex" value="${color}" pattern="#[0-9a-fA-F]{6}" maxlength="7" required aria-label="${style.name} HEX 色值"><button type="submit" class="secondary-button">保存</button><button type="button" class="text-link" data-flow-reset="${group}">恢复默认</button></form>`;
+      })
+      .join("");
     ["expense", "income"].forEach((type) => {
       const items = state.categories.filter((item) => item.type === type);
       $(`#${type}-category-count`).textContent = items.length;
@@ -594,6 +670,52 @@
     });
   }
 
+  $("#flow-style-controls").addEventListener("input", (event) => {
+    const form = event.target.closest("form");
+    if (!form) return;
+    if (event.target.name === "color")
+      form.elements.hex.value = event.target.value;
+    if (
+      event.target.name === "hex" &&
+      /^#[0-9a-fA-F]{6}$/.test(event.target.value)
+    )
+      form.elements.color.value = event.target.value;
+  });
+  async function saveFlowStyle(group, color, button) {
+    if (!Object.hasOwn(FLOW_STYLES, group) || !/^#[0-9a-fA-F]{6}$/.test(color))
+      return;
+    const previous = structuredClone(state.flowStyles || {});
+    state.flowStyles = { ...previous, [group]: color };
+    button.disabled = true;
+    try {
+      await save();
+      render();
+      toast("固定类别样式已保存");
+    } catch {
+      state.flowStyles = previous;
+      render();
+    } finally {
+      button.disabled = false;
+    }
+  }
+  $("#flow-style-controls").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = event.target;
+    saveFlowStyle(
+      form.dataset.flowStyle,
+      form.elements.hex.value,
+      form.querySelector('[type="submit"]'),
+    );
+  });
+  $("#flow-style-controls").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-flow-reset]");
+    if (button)
+      saveFlowStyle(
+        button.dataset.flowReset,
+        FLOW_STYLES[button.dataset.flowReset].color,
+        button,
+      );
+  });
   function financeEvents(finance = state.finance) {
     const events = finance.transfers.map((item) => ({
       date: item.date,
@@ -866,6 +988,10 @@
   });
   function renderSpecialRows() {
     const type = $("#entry-type").value;
+    $("#credit-controls").style.setProperty(
+      "--flow-color",
+      flowColor("credit"),
+    );
     $("#credit-controls").classList.toggle("hidden", type !== "expense");
     $("#entry-credit-fields").classList.toggle(
       "hidden",
@@ -875,7 +1001,7 @@
       .filter(([, tag]) => tag.type === type)
       .map(
         ([kind, tag]) =>
-          `<button type="button" class="secondary-button" data-add-special="${kind}">＋ ${tag.name}</button>`,
+          `<button type="button" class="secondary-button" data-add-special="${kind}">＋ ${flowBadge(kind)}</button>`,
       )
       .join("");
     const claims = draftClaims();
@@ -900,7 +1026,7 @@
               )
               .join("")
           : "";
-        return `<div class="special-row" data-special-index="${index}"><div class="special-row-head"><strong>${tag.name}</strong><button type="button" class="delete-action" data-remove-special="${index}" aria-label="移除${tag.name}明细">移除</button></div>${tag.target ? `<div class="field"><label>关联原始账目 <em>*</em><select data-special-field="targetId" aria-label="${tag.name}关联原始账目"><option value="">请选择（可跨月关联）</option>${options}</select></label></div>` : ""}<div class="field-grid"><div class="field"><label>${tag.party}<input data-special-field="party" value="${escapeHTML(part.party)}" maxlength="60" list="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}-suggestions" data-party-group="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}" ${tag.target && claims.find((c) => c.id === part.targetId)?.party ? "readonly" : ""} placeholder="${part.kind === "reimbursable" ? "例如：公司差旅" : "名称需与之前保持一致"}" aria-label="${tag.name}对方"></label></div><div class="field"><label>金额 <em>*</em><input data-special-field="amount" type="number" min="0.01" max="1000000000" step="0.01" value="${part.amount || ""}" aria-label="${tag.name}金额"></label></div></div></div>`;
+        return `<div class="special-row" style="--flow-color:${flowColor(part.kind)}" data-special-index="${index}"><div class="special-row-head"><strong>${flowBadge(part.kind)}</strong><button type="button" class="delete-action" data-remove-special="${index}" aria-label="移除${tag.name}明细">移除</button></div>${tag.target ? `<div class="field"><label>关联原始账目 <em>*</em><select data-special-field="targetId" aria-label="${tag.name}关联原始账目"><option value="">请选择（可跨月关联）</option>${options}</select></label></div>` : ""}<div class="field-grid"><div class="field"><label>${tag.party}<input data-special-field="party" value="${escapeHTML(part.party)}" maxlength="60" list="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}-suggestions" data-party-group="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}" ${tag.target && claims.find((c) => c.id === part.targetId)?.party ? "readonly" : ""} placeholder="${part.kind === "reimbursable" ? "例如：公司差旅" : "名称需与之前保持一致"}" aria-label="${tag.name}对方"></label></div><div class="field"><label>金额 <em>*</em><input data-special-field="amount" type="number" min="0.01" max="1000000000" step="0.01" value="${part.amount || ""}" aria-label="${tag.name}金额"></label></div></div></div>`;
       })
       .reverse()
       .join("");
@@ -949,7 +1075,7 @@
         )
           .map(
             (part) =>
-              `<span>${escapeHTML(part.name)}${part.party ? ` · ${escapeHTML(part.party)}` : ""}<b>${money(part.amount)}</b></span>`,
+              `<span>${part.kind === "ordinary" ? escapeHTML(part.name) : flowBadge(part.kind === "borrowed" && part.name.includes("信用付款") ? "credit" : part.kind, part.party)}<b>${money(part.amount)}</b></span>`,
           )
           .join(
             "",

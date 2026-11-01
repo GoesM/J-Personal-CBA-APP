@@ -30,6 +30,9 @@
     },
     "partyPreferences": {
       "$ref": "#/$defs/partyPreferences"
+    },
+    "flowStyles": {
+      "$ref": "#/$defs/flowStyles"
     }
   },
   "$defs": {
@@ -94,6 +97,9 @@
         },
         "partyPreferences": {
           "$ref": "#/$defs/partyPreferences"
+        },
+        "flowStyles": {
+          "$ref": "#/$defs/flowStyles"
         }
       }
     },
@@ -491,6 +497,21 @@
               }
             }
           }
+        }
+      }
+    },
+    "flowStyles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "receivable": {
+          "$ref": "#/$defs/color"
+        },
+        "payable": {
+          "$ref": "#/$defs/color"
+        },
+        "reimbursement": {
+          "$ref": "#/$defs/color"
         }
       }
     }

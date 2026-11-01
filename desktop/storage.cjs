@@ -79,6 +79,20 @@ function validateState(state) {
     );
     categories.set(item.id, item);
   }
+  if (state.flowStyles === undefined) state.flowStyles = {};
+  assert(
+    state.flowStyles &&
+      typeof state.flowStyles === "object" &&
+      !Array.isArray(state.flowStyles),
+    "固定类别样式无效",
+  );
+  for (const [group, color] of Object.entries(state.flowStyles))
+    assert(
+      ["receivable", "payable", "reimbursement"].includes(group) &&
+        typeof color === "string" &&
+        colorPattern.test(color),
+      "固定类别颜色无效",
+    );
   if (state.partyPreferences === undefined) state.partyPreferences = {};
   assert(
     state.partyPreferences &&
@@ -239,6 +253,7 @@ const metaBody = (state) =>
     finance: state.finance,
     analysisPreferences: state.analysisPreferences,
     partyPreferences: state.partyPreferences,
+    flowStyles: state.flowStyles,
   });
 const dayBody = (date, entries) => json({ schemaVersion: 2, date, entries });
 
@@ -384,6 +399,7 @@ class LedgerStore {
       finance: meta.finance,
       analysisPreferences: meta.analysisPreferences,
       partyPreferences: meta.partyPreferences,
+      flowStyles: meta.flowStyles,
     });
     this.manifest = manifest;
     this.cachedState = structuredClone(state);

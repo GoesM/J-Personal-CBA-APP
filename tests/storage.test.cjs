@@ -283,6 +283,11 @@ test("常用往来方分组随账本重启与导入保存，拒绝冲突设置",
   const { root, temp } = await isolated(t, "cba-parties-");
   const store = new LedgerStore(root);
   const state = baseline();
+  state.flowStyles = {
+    receivable: "#123456",
+    payable: "#876543",
+    reimbursement: "#abcdef",
+  };
   state.partyPreferences = {
     credit: { pinned: ["花呗"], hidden: ["旧卡"] },
     reimbursement: { pinned: ["公司"], hidden: [] },
@@ -291,6 +296,7 @@ test("常用往来方分组随账本重启与导入保存，拒绝冲突设置",
   await store.save(state);
   const loaded = await new LedgerStore(root).load();
   assert.deepEqual(loaded.partyPreferences, state.partyPreferences);
+  assert.deepEqual(loaded.flowStyles, state.flowStyles);
   const imported = new LedgerStore(path.join(temp, "imported"));
   const file = path.join(temp, "backup.json");
   await fs.writeFile(file, JSON.stringify(loaded));
@@ -300,6 +306,13 @@ test("常用往来方分组随账本重启与导入保存，拒绝冲突设置",
       .partyPreferences,
     state.partyPreferences,
   );
+  assert.deepEqual(
+    (await new LedgerStore(path.join(temp, "imported")).load()).flowStyles,
+    state.flowStyles,
+  );
+  const invalid = structuredClone(state);
+  invalid.flowStyles.payable = "red";
+  assert.throws(() => validateState(invalid), /固定类别颜色无效/);
   state.partyPreferences.credit.hidden.push("花呗");
   assert.throws(() => validateState(state), /同时置顶与隐藏/);
 });

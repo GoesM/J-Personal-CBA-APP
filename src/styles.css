@@ -2485,3 +2485,78 @@ p {
   gap: 10px;
   padding-top: 8px;
 }
+
+.flow-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.flow-detail {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.flow-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--flow-color);
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--flow-color) 12%, white);
+  color: #24352d;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.flow-status {
+  display: inline-block;
+  font-size: 11px;
+  color: #5c695f;
+  padding: 2px 5px;
+  background: #f0f3ef;
+  border-radius: 4px;
+}
+.special-row,
+.obligation-record {
+  border-left: 3px solid var(--flow-color, #d7e3d7);
+  padding-left: 12px;
+}
+.flow-style-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid #edf0e9;
+}
+.flow-style-form label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 240px;
+}
+.flow-style-form input[type="color"] {
+  padding: 3px;
+  width: 48px;
+  height: 36px;
+}
+.flow-style-form input[name="hex"] {
+  width: 110px;
+}
+.fixed-tags-panel h3 {
+  margin: 22px 0 10px;
+}
+.entry-special-actions .flow-badge {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+#credit-controls .credit-toggle {
+  border-left: 4px solid var(--flow-color);
+  padding-left: 10px;
+  background: color-mix(in srgb, var(--flow-color) 8%, white);
+}
