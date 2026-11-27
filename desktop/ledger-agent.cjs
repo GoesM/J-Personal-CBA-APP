@@ -209,7 +209,6 @@ class LedgerAgent {
       const c = await this.service.config();
       if (!c.model) throw Error("请在模型设置中获取并选择模型");
       if (!state) throw Error("请先打开账本");
-      this.pending = null;
       const history = await this.history(scope);
       const today = new Date().toLocaleDateString("sv-SE");
       const system =
@@ -311,7 +310,7 @@ class LedgerAgent {
               : reply,
           },
         ]);
-        this.pending = proposal;
+        if (proposal) this.pending = proposal;
         return {
           reply,
           proposal: proposal
@@ -324,25 +323,55 @@ class LedgerAgent {
       this.busy = false;
     }
   }
-  async apply(scope, store, id) {
+  async apply(scope, store, request) {
+    const id = typeof request === "string" ? request : request?.id;
     const p = this.pending;
     if (this.busy || !p || p.scope !== JSON.stringify(scope) || p.id !== id)
       throw Error("草稿已失效，请重新生成");
     const state = await store.load();
     if (hash(state) !== p.base)
       throw Error("账本已有变化，请重新核对并生成草稿");
+    const selection =
+      typeof request === "string"
+        ? p.changes.map((c, index) => ({ index }))
+        : request.items;
+    if (
+      !Array.isArray(selection) ||
+      !selection.length ||
+      new Set(selection.map((s) => s.index)).size !== selection.length
+    )
+      throw Error("请选择有效的草稿行。");
+    const changes = selection.map(({ index, edits }) => {
+      if (!Number.isInteger(index) || !p.changes[index])
+        throw Error("草稿行已失效。");
+      const change = structuredClone(p.changes[index]);
+      if (edits) {
+        const editable = ["date", "description"];
+        if (!change.after?.special?.length && !change.after?.credit)
+          editable.push("amount");
+        if (
+          !change.after ||
+          Object.keys(edits).some((k) => !editable.includes(k))
+        )
+          throw Error("不能修改该草稿字段。");
+        Object.assign(change.after, edits);
+      }
+      return change;
+    });
     const next = {
       ...state,
       entries: state.entries
-        .filter((e) => !p.changes.some((c) => c.before?.id === e.id))
-        .concat(p.changes.flatMap((c) => (c.after ? [c.after] : []))),
+        .filter((e) => !changes.some((c) => c.before?.id === e.id))
+        .concat(changes.flatMap((c) => (c.after ? [c.after] : []))),
     };
     await store.save(validateState(next));
     this.pending = null;
     await this.append(scope, [
       {
         role: "assistant",
-        text: "已按用户确认写入 " + p.changes.length + " 项变更。",
+        text: "已按用户确认写入 " + changes.length + " 项变更。",
+        context:
+          "已写入（最终确认） " + JSON.stringify(changes).slice(0, 10000),
       },
     ]).catch(() => {});
     return next;

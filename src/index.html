@@ -68,10 +68,6 @@
             <strong id="breadcrumb-name">账目明细</strong>
           </div>
           <div class="top-actions">
-            <div id="ai-actions">
-              <button type="button" id="assistant-open">✦ AI 智填</button
-              ><button type="button" id="assistant-ask">AI 智问</button>
-            </div>
             <span class="demo-badge">本机数据</span
             ><button class="primary-button top-add" id="top-add" type="button">
               <span>＋</span> 记一笔
@@ -119,11 +115,14 @@
             <section class="panel ledger-panel">
               <div class="panel-head">
                 <div>
-                  <div class="eyebrow">TRANSACTIONS</div>
                   <h2>
                     账目记录
                     <span class="record-count" id="record-count">0</span>
                   </h2>
+                </div>
+                <div id="ai-actions" aria-label="账本智能体">
+                  <button type="button" id="assistant-open">✦ 从账单智填</button
+                  ><button type="button" id="assistant-ask">向账本提问</button>
                 </div>
                 <button class="text-button" id="clear-filters" type="button">
                   清除筛选
@@ -1055,44 +1054,57 @@
     >
       <header class="tool-heading">
         <div>
-          <h2 id="assistant-title">账本智能体</h2>
+          <h2 id="assistant-title">AI 智填</h2>
           <small id="ai-connection"></small>
         </div>
-        <button type="button" data-dismiss aria-label="关闭">×</button>
+        <div class="ai-head-actions">
+          <button data-mode="usage">用量</button
+          ><button data-mode="config">模型设置</button
+          ><button type="button" data-dismiss aria-label="关闭">关闭</button>
+        </div>
       </header>
       <div class="assistant-body">
-        <nav class="assistant-modes" aria-label="智能体栏目">
-          <button data-mode="record">智填</button
-          ><button data-mode="ask">智问</button
-          ><button data-mode="usage">用量</button
-          ><button data-mode="config">模型设置</button>
+        <nav class="assistant-modes" aria-label="工作方式">
+          <button data-mode="record">从账单智填</button
+          ><button data-mode="ask">向账本提问</button>
         </nav>
         <section id="ai-chat">
-          <div id="ai-history" aria-live="polite"></div>
-          <div id="ai-proposal" hidden></div>
-          <label for="assistant-text" id="assistant-label">账单说明</label
-          ><textarea id="assistant-text" rows="3" maxlength="12000"></textarea>
-          <div id="assistant-drop">
-            <button
-              type="button"
-              class="secondary-button"
-              id="assistant-upload"
-            >
-              添加截图 / 账单</button
-            ><small>支持粘贴或拖入 PNG、JPEG、WebP、CSV、TXT</small
-            ><input
-              hidden
-              id="assistant-files"
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/webp,.csv,.txt"
-            />
+          <div id="ai-thread">
+            <div id="ai-history" role="log" aria-live="polite"></div>
+            <div id="ai-pending" hidden role="status"></div>
+            <div id="ai-proposal" hidden></div>
           </div>
-          <div id="assistant-images"></div>
-          <small
-            >发送后，所选模型服务将收到本次输入、近期对话和回答所需的账目信息。</small
-          >
-          <button id="ai-send" class="primary-button">发送</button>
+          <div id="ai-composer">
+            <div id="assistant-drop">
+              <input
+                hidden
+                id="assistant-files"
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/webp,.csv,.txt"
+              />
+              <button
+                type="button"
+                class="secondary-button"
+                id="assistant-upload"
+              >
+                ＋ 添加材料</button
+              ><small>拖入或粘贴截图，也可读取 CSV、TXT</small>
+              <div id="assistant-images"></div>
+            </div>
+            <label for="assistant-text" id="assistant-label">处理要求</label>
+            <textarea id="assistant-text" rows="2" maxlength="12000"></textarea>
+            <div class="ai-send-row">
+              <small title="所选模型服务将收到输入、近期对话和相关账目。"
+                >发送到所选模型 · Ctrl + Enter 提交</small
+              ><button id="ai-send" class="primary-button">生成账目草稿</button>
+            </div>
+          </div>
+          <footer id="ai-review-actions" hidden>
+            <button id="ai-discard" class="text-button">放弃草稿</button
+            ><button id="ai-revise" class="secondary-button">补充说明</button
+            ><button id="ai-apply" class="primary-button">确认写入</button>
+          </footer>
         </section>
         <section id="ai-config" hidden>
           <label>API 服务地址<input id="ai-base" type="url" /></label
@@ -1142,6 +1154,7 @@
             默认按北京时间工作日高峰和空闲半价估算，法定节假日可能高估。实际扣费以服务商账单为准。</small
           >
         </section>
+        <button id="ai-back" class="secondary-button" hidden>返回</button>
         <p id="assistant-status" role="status"></p>
       </div>
     </dialog>

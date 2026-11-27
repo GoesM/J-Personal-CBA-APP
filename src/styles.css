@@ -3069,3 +3069,241 @@ p {
   min-height: 1em;
   overflow-wrap: anywhere;
 }
+
+/* Task panel: the conversation and review scroll above the fixed actions. */
+#page-ledger .panel-head #ai-actions {
+  margin-left: auto;
+}
+#page-ledger .panel-head {
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+#assistant-drawer {
+  margin: auto;
+  width: min(790px, 94vw);
+  height: min(740px, 90dvh);
+  max-height: 94dvh;
+  border-radius: 16px;
+}
+#assistant-drawer .tool-heading {
+  padding: 16px 22px;
+}
+.ai-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+#assistant-drawer .ai-head-actions button {
+  font-size: 12px;
+  padding: 8px 11px;
+}
+.ai-head-actions [aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px #779881;
+}
+#assistant-drawer .assistant-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 22px;
+  overflow: hidden;
+}
+#assistant-drawer .assistant-modes {
+  align-self: flex-start;
+  background: #eef2ef;
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+#assistant-drawer .assistant-modes button {
+  background: transparent;
+}
+#assistant-drawer .assistant-modes button[aria-pressed="true"] {
+  background: white;
+  color: #294d3e;
+  box-shadow: 0 1px 4px #23472f24;
+}
+#assistant-drawer #ai-chat:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 8px;
+}
+#ai-thread {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 4px 5px;
+}
+#ai-history {
+  display: flex;
+  flex-direction: column;
+  max-height: none;
+  overflow: visible;
+  gap: 12px;
+}
+#ai-history .ai-message {
+  align-self: flex-start;
+  max-width: 94%;
+  font-size: 14px;
+  line-height: 1.6;
+}
+#ai-history .ai-message.user {
+  align-self: flex-end;
+}
+#ai-pending {
+  text-align: right;
+  background: #f0f5f0;
+  border-radius: 10px;
+  margin: 8px 0 0 auto;
+  padding: 10px;
+  width: fit-content;
+  max-width: 90%;
+  overflow-wrap: anywhere;
+}
+#ai-pending p {
+  white-space: pre-wrap;
+  margin: 0;
+}
+.ai-empty {
+  margin: auto;
+  padding: 14px 0;
+  color: #627569;
+  font-size: 13px;
+}
+#ai-composer {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  display: grid;
+  gap: 6px;
+  flex: none;
+}
+#ai-composer textarea {
+  width: 100%;
+  resize: vertical;
+  max-height: 17vh;
+  font-size: 14px;
+}
+#ai-composer #assistant-drop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 10px;
+  text-align: left;
+  border: 0;
+  padding: 0;
+}
+#assistant-drop small {
+  margin: 0;
+}
+#assistant-images {
+  max-height: 90px;
+  overflow: auto;
+}
+#assistant-images figure {
+  padding: 3px 22px 3px 4px;
+  background: #f3f6f2;
+  border-radius: 7px;
+}
+#assistant-images img {
+  width: 42px;
+  height: 42px;
+}
+#assistant-images pre {
+  max-width: 60vw;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.ai-send-row,
+#ai-review-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.ai-send-row small {
+  margin-right: auto;
+  font-size: 11px;
+}
+#ai-review-actions {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+#ai-discard {
+  margin-right: auto;
+}
+#ai-proposal {
+  margin: 10px 0;
+  background: white;
+}
+#ai-proposal article {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  padding: 11px;
+  border-radius: 9px;
+}
+#ai-proposal article.skipped {
+  background: #f7f7f6;
+  color: #707870;
+}
+#ai-proposal article > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#ai-proposal article > label span {
+  font-size: 11px;
+  color: #427557;
+}
+#ai-proposal article > label b {
+  margin-left: auto;
+}
+#ai-proposal article details {
+  margin: 7px 0 0 24px;
+}
+.ai-review-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 0.8fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+.ai-review-fields input {
+  width: 100%;
+}
+#ai-config:not([hidden]),
+#ai-usage:not([hidden]) {
+  overflow: auto;
+  align-content: start;
+  flex: 1;
+}
+#ai-back {
+  align-self: flex-end;
+}
+#assistant-status {
+  flex: none;
+  margin: 0;
+  font-size: 12px;
+  color: #445f4e;
+}
+#assistant-drawer [hidden] {
+  display: none !important;
+}
+@media (max-height: 680px) {
+  #assistant-drawer {
+    height: 94dvh;
+  }
+  #assistant-drawer .tool-heading {
+    padding-block: 9px;
+  }
+  #assistant-drawer .assistant-body {
+    padding-block: 8px;
+  }
+  #ai-composer textarea {
+    max-height: 76px;
+  }
+}

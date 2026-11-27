@@ -98,7 +98,7 @@ test("智填多轮只读查询后建草稿，按账本及快照确认，写入�
   assert(
     calls
       .at(-1)
-      .messages.some((x) => x.content === "已按用户确认写入 1 项变更。"),
+      .messages.some((x) => String(x.content).includes("已写入（最终确认）")),
   );
   assert.equal(query(await store.load(), { view: "totals" }).expense, 17);
   assert.deepEqual(await agent.history(["two", "gen"]), []);
@@ -184,4 +184,39 @@ test("服务切换隔离 Token，逐轮按历史价格计费，时间范围与�
     service.configure({ base: "http://example.com" }),
     /HTTPS/,
   );
+});
+
+test("只写入核对勾选的账目，保留人工修订；先提问仍可确认原草稿", async (t) => {
+  const root = await directory(t),
+    store = new LedgerStore(path.join(root, "ledger"));
+  await store.save(seed());
+  const replies = [
+    call("propose_entries", { changes: [create, create], reason: "两笔晚餐" }),
+    { content: "已查询" },
+  ];
+  const agent = new LedgerAgent(root, {
+    config: async () => ({ model: "m" }),
+    chat: async () => replies.shift(),
+  });
+  const scope = ["ledger", "gen"];
+  const { proposal } = await agent.turn(scope, await store.load(), {
+    mode: "record",
+    text: "两笔晚餐",
+  });
+  await agent.turn(scope, await store.load(), {
+    mode: "ask",
+    text: "核对余额",
+  });
+  const apply = (items) =>
+    agent.apply(scope, store, { id: proposal.id, items });
+  await assert.rejects(apply([]));
+  await assert.rejects(apply([{ index: 1, edits: { amount: -1 } }]));
+  await assert.rejects(apply([{ index: 1, edits: { type: "income" } }]));
+  assert.equal((await store.load()).entries.length, 0);
+  const result = await apply([
+    { index: 1, edits: { amount: 16.8, description: "实际晚餐" } },
+  ]);
+  assert.equal(result.entries.length, 1);
+  assert.equal(result.entries[0].amount, 16.8);
+  assert.equal(result.entries[0].id, proposal.changes[1].after.id);
 });

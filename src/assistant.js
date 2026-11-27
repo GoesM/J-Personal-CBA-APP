@@ -19,6 +19,22 @@
     priceDirty = false;
   let files = [],
     drafts = { record: "", ask: "" };
+  let workMode = "record",
+    revising = false,
+    renderedProposal = null;
+  function syncReview() {
+    const review = mode === "record" && Boolean(proposal) && !revising;
+    $("#ai-proposal").hidden = !review;
+    $("#ai-composer").hidden = review;
+    $("#ai-review-actions").hidden = !review;
+    if (review) {
+      const count = $("#ai-proposal").querySelectorAll(
+        "[data-select]:checked",
+      ).length;
+      $("#ai-apply").textContent = "确认写入 " + count + " 项";
+      $("#ai-apply").disabled = busy || !count;
+    }
+  }
   const buttons = [...drawer.querySelectorAll("[data-mode]")];
   const priceFields = ["input", "cached", "output"];
   function setBusy(value) {
@@ -26,6 +42,7 @@
     drawer.querySelectorAll("button,input,textarea,select").forEach((n) => {
       if (!n.hasAttribute("data-dismiss")) n.disabled = value;
     });
+    syncReview();
   }
   drawer.addEventListener("cancel", (event) => {
     if (busy) event.preventDefault();
@@ -61,6 +78,18 @@
     if (["record", "ask"].includes(mode))
       drafts[mode] = $("#assistant-text").value;
     mode = panel;
+    if (["record", "ask"].includes(mode)) workMode = mode;
+    const titles = {
+      ask: "AI 智问",
+      record: "AI 智填",
+      usage: "智能体用量",
+      config: "模型设置",
+    };
+    $("#assistant-title").textContent = titles[mode];
+    $("#ai-back").hidden = mode === workMode;
+    $(".assistant-modes").hidden = mode !== workMode;
+    $("#ai-back").textContent = "返回" + titles[workMode];
+    drawer.dataset.view = mode;
     buttons.forEach((b) =>
       b.setAttribute("aria-pressed", String(b.dataset.mode === mode)),
     );
@@ -70,15 +99,27 @@
     if (!$("#ai-chat").hidden) {
       $("#assistant-text").value = drafts[mode] || "";
       $("#assistant-label").textContent =
-        mode === "ask" ? "问一问你的账本" : "账单说明";
+        mode === "ask" ? "问一问你的账本" : "你的处理要求";
       $("#assistant-text").placeholder =
         mode === "ask"
           ? "这个月实付多少？还有哪些垫付没有收回？"
           : "例如：识别这张月付账单，核对已有订单，再准备还款记录。";
       $("#ai-send").textContent =
-        mode === "record" ? "发送给 AI 智填" : "发送给 AI 智问";
+        mode === "record"
+          ? revising
+            ? "重新生成草稿"
+            : "生成账目草稿"
+          : "发送问题";
     }
+    const empty = $("#ai-history .ai-empty");
+    if (empty)
+      empty.textContent =
+        mode === "ask"
+          ? "可以从「这个月现金流出了多少？」开始。"
+          : "添加账单材料，或直接写下需要记录的事项。";
+    syncReview();
   }
+  $("#ai-back").onclick = () => enter(workMode);
   function paintConversation(rows) {
     const area = $("#ai-history");
     area.replaceChildren();
@@ -91,7 +132,18 @@
       );
       area.append(item);
     }
-    area.scrollTop = area.scrollHeight;
+    if (rows.length === 0) {
+      const empty = el(
+        "div",
+        mode === "ask"
+          ? "可以从「这个月现金流出了多少？」开始。"
+          : "添加账单材料，或直接写下需要记录的事项。",
+      );
+      empty.className = "ai-empty";
+      area.append(empty);
+    }
+    const thread = $("#ai-thread");
+    thread.scrollTop = thread.scrollHeight;
   }
   async function history() {
     const next = await api.aiHistory();
@@ -105,6 +157,7 @@
     paintConversation(next.history);
     proposal = next.proposal;
     paintProposal();
+    syncReview();
   }
   function details(entry) {
     if (!entry) return "无";
@@ -133,45 +186,113 @@
   }
   function paintProposal() {
     const area = $("#ai-proposal");
+    if (renderedProposal === proposal?.id) return;
+    renderedProposal = proposal?.id;
+    revising = false;
     area.replaceChildren();
-    area.hidden = !proposal;
     if (!proposal) return;
-    area.append(el("h3", "待确认 · " + proposal.changes.length + " 项变更"));
-    for (const c of proposal.changes) {
-      const d = el("details", "");
-      d.open = true;
-      d.append(
-        el(
-          "summary",
-          (c.before ? (c.after ? "修改" : "删除") : "新增") +
-            " · " +
-            (c.after || c.before).description,
-        ),
+    area.append(el("h3", "核对账目草稿"));
+    proposal.changes.forEach((c, index) => {
+      const entry = c.after || c.before,
+        card = el("article", "");
+      card.dataset.index = index;
+      const head = el("label", ""),
+        check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = true;
+      check.dataset.select = index;
+      const op = c.before ? (c.after ? "修改" : "删除") : "新增";
+      head.append(
+        check,
+        el("span", op),
+        el("strong", entry.description),
+        el("b", "¥ " + entry.amount.toFixed(2)),
       );
-      if (c.before) d.append(el("pre", "原账目\n" + details(c.before)));
-      if (c.after)
-        d.append(el("pre", (c.before ? "修改后\n" : "") + details(c.after)));
-      area.append(d);
-    }
-    const ok = el("button", "确认写入账本"),
-      cancel = el("button", "取消草稿");
-    ok.className = "primary-button";
-    cancel.className = "secondary-button";
-    ok.onclick = () =>
-      task(async () => {
-        await window.ledgerAgentView.ready();
-        const next = await api.aiApply(proposal.id);
-        window.ledgerAgentView.applied(next);
-        await history();
-        status("已保存到当前账本。");
-      });
-    cancel.onclick = () =>
-      task(async () => {
-        await api.aiDiscard(proposal.id);
-        await history();
-      });
-    area.append(ok, cancel);
+      card.append(head);
+      const body = el("details", "");
+      body.open = proposal.changes.length === 1;
+      body.append(el("summary", c.after ? "核对与修改" : "查看原账目"));
+      if (c.before) body.append(el("pre", "原账目\n" + details(c.before)));
+      if (c.after) {
+        const fields = el("div", "");
+        fields.className = "ai-review-fields";
+        for (const [key, title, type] of [
+          ["date", "日期", "date"],
+          ["description", "事项", "text"],
+          ["amount", "金额（元）", "number"],
+        ]) {
+          const label = el("label", title),
+            input = document.createElement("input");
+          input.type = type;
+          input.value = c.after[key];
+          input.dataset.field = key;
+          if (key === "description") input.maxLength = 80;
+          if (key === "amount") {
+            input.step = "0.01";
+            input.min = "0";
+            input.readOnly = Boolean(c.after.credit || c.after.special?.length);
+          }
+          label.append(input);
+          fields.append(label);
+        }
+        body.append(
+          fields,
+          el("small", details(c.after).split("\n").slice(3).join("\n")),
+        );
+      }
+      card.append(body);
+      area.append(card);
+      check.onchange = () => {
+        card.classList.toggle("skipped", !check.checked);
+        syncReview();
+      };
+    });
+    $("#ai-proposal").scrollIntoView?.({ block: "start" });
   }
+  $("#ai-apply").onclick = () =>
+    task(async () => {
+      const items = [
+        ...$("#ai-proposal").querySelectorAll("[data-select]:checked"),
+      ].map((check) => {
+        const index = Number(check.dataset.select),
+          entry = proposal.changes[index].after,
+          edits = {};
+        for (const input of check
+          .closest("article")
+          .querySelectorAll("[data-field]")) {
+          const key = input.dataset.field,
+            value = key === "amount" ? input.valueAsNumber : input.value.trim();
+          if (!input.readOnly && value !== entry[key]) edits[key] = value;
+        }
+        return Object.keys(edits).length ? { index, edits } : { index };
+      });
+      await window.ledgerAgentView.ready();
+      const next = await api.aiApply({ id: proposal.id, items });
+      window.ledgerAgentView.applied(next);
+      await history();
+      status("已保存到当前账本。");
+    });
+  $("#ai-discard").onclick = () =>
+    task(async () => {
+      await api.aiDiscard(proposal.id);
+      await history();
+    });
+  $("#ai-revise").onclick = () => {
+    revising = true;
+    show("record");
+    status("补充需要修改的地方，再重新生成草稿。");
+    $("#assistant-text").focus();
+  };
+  $("#assistant-text").onkeydown = (event) => {
+    if (
+      !event.isComposing &&
+      event.key === "Enter" &&
+      (event.ctrlKey || event.metaKey)
+    ) {
+      event.preventDefault();
+      if (!busy) $("#ai-send").click();
+    }
+  };
   function models(items, current) {
     const s = $("#ai-model");
     s.replaceChildren();
@@ -273,11 +394,23 @@
     show(panel);
     status("");
     if (panel === "usage") return task(usage);
-    if (panel === "config") return task(info);
+    if (panel === "config")
+      return task(async () => {
+        await info();
+        if (connection.hasToken) {
+          try {
+            models(await api.aiModels(), connection.model);
+          } catch {
+            status("可继续使用当前模型，或点击刷新重试。");
+          }
+        }
+      });
+    if (!busy) $("#assistant-text").focus();
   }
   buttons.forEach((b) => (b.onclick = () => enter(b.dataset.mode)));
   function open(panel) {
     if (!drawer.open) drawer.showModal();
+    revising = false;
     show(panel);
     if (!api?.aiInfo) {
       status("请在 Windows 版拾光账本中连接模型服务。");
@@ -340,7 +473,7 @@
       }
       await api.aiConfigure(cfg);
       await info();
-      show("record");
+      show(workMode);
       status("模型设置已保存。");
     });
   $("#ai-period").onchange = () => task(usage);
@@ -354,7 +487,11 @@
         img.src = f.image;
         img.alt = f.name;
         tile.append(img);
-      } else tile.append(el("figcaption", f.name));
+      } else {
+        const preview = el("details", "");
+        preview.append(el("summary", f.name), el("pre", f.text.slice(0, 1500)));
+        tile.append(preview);
+      }
       const rm = el("button", "×");
       rm.setAttribute("aria-label", "移除 " + f.name);
       rm.onclick = () => {
@@ -427,12 +564,24 @@
           .join("\n");
       if (!text && !files.length) throw Error("请输入文字或添加账单。");
       await window.ledgerAgentView.ready();
-      status("正在查账或整理建议…");
+      const pending = $("#ai-pending");
+      pending.hidden = false;
+      pending.replaceChildren(
+        el("p", text || files.map((f) => f.name).join("、")),
+        el(
+          "small",
+          mode === "ask" ? "正在查询账本…" : "正在核对材料并整理草稿…",
+        ),
+      );
+      $("#ai-thread").scrollTop = $("#ai-thread").scrollHeight;
       try {
         await api.aiTurn({ mode, text, images, bill });
       } catch (e) {
         await history();
         throw e;
+      } finally {
+        pending.hidden = true;
+        pending.replaceChildren();
       }
       drafts[mode] = "";
       $("#assistant-text").value = "";
