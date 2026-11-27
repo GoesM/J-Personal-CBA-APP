@@ -16,6 +16,7 @@
     />
     <link rel="stylesheet" href="./styles.css" />
     <script defer src="./accounting.js"></script>
+    <script defer src="./ledger-tools.js"></script>
     <script defer src="./app.js"></script>
   </head>
   <body>
@@ -66,7 +67,9 @@
             <strong id="breadcrumb-name">账目明细</strong>
           </div>
           <div class="top-actions">
-            <span class="demo-badge">本机数据</span
+            <button type="button" class="secondary-button" id="assistant-open">
+              AI 助手</button
+            ><span class="demo-badge">本机数据</span
             ><button class="primary-button top-add" id="top-add" type="button">
               <span>＋</span> 记一笔
             </button>
@@ -76,9 +79,7 @@
         <section class="page active" id="page-ledger" aria-label="账目明细">
           <div class="page-heading">
             <div>
-              <div class="eyebrow">MY FINANCES</div>
-              <h1>让每一笔，都心中有数<span class="heading-dot">.</span></h1>
-              <p>简单记录日常收支，回头看见生活的轨迹。</p>
+              <h1>账目明细</h1>
             </div>
             <div class="date-control">
               <label for="ledger-month">查看月份</label
@@ -149,7 +150,12 @@
                   <option value="all">全部类别</option>
                 </select>
               </div>
-              <div id="ledger-list" class="ledger-list"></div>
+              <div
+                id="ledger-list"
+                class="ledger-list"
+                tabindex="0"
+                aria-label="滚动浏览账目记录"
+              ></div>
             </section>
             <aside class="side-stack">
               <section class="panel quick-panel">
@@ -623,7 +629,7 @@
               ><input
                 id="entry-amount"
                 type="number"
-                min="0.01"
+                min="0"
                 max="999999999"
                 step="0.01"
                 placeholder="0.00"
@@ -1014,5 +1020,105 @@
       </div>
     </div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog
+      id="claim-picker"
+      class="tool-dialog"
+      aria-labelledby="picker-title"
+    >
+      <header class="tool-heading">
+        <h2 id="picker-title">选择待结算账目</h2>
+        <button type="button" data-dismiss aria-label="关闭">×</button>
+      </header>
+      <div class="picker-search">
+        <input
+          type="search"
+          id="picker-query"
+          aria-label="搜索原账目"
+          placeholder="搜索往来方、事项、日期或金额"
+        /><button type="button" class="secondary-button" id="picker-all">
+          全选搜索结果</button
+        ><button type="button" class="text-button" id="picker-none">
+          清空选择
+        </button>
+      </div>
+      <div id="picker-list" class="picker-list"></div>
+      <section class="picker-summary">
+        <strong id="picker-count"></strong>
+        <div class="picker-controls">
+          <label
+            >本次实收／实付合计（元）<input
+              id="picker-cash"
+              type="number"
+              step="0.01"
+              min="0"
+              max="1000000000"
+          /></label>
+          <label
+            ><input id="picker-close" type="checkbox" />
+            结清所选原账目的全部余额</label
+          >
+        </div>
+        <label id="picker-remainder" hidden
+          ><input type="checkbox" id="picker-keep" /> <span></span
+        ></label>
+        <details id="picker-details">
+          <summary>查看或调整逐笔分配</summary>
+          <div id="picker-shares"></div>
+        </details>
+        <p id="picker-status" role="status"></p>
+      </section>
+      <footer class="tool-footer">
+        <button type="button" data-dismiss class="secondary-button">取消</button
+        ><button type="button" id="picker-apply" class="primary-button">
+          添加关联
+        </button>
+      </footer>
+    </dialog>
+    <dialog
+      id="assistant-drawer"
+      class="tool-dialog assistant-drawer"
+      aria-labelledby="assistant-title"
+    >
+      <header class="tool-heading">
+        <div>
+          <h2 id="assistant-title">账本 AI 助手</h2>
+          <small>交互预览 · 使用示例账目演示</small>
+        </div>
+        <button type="button" data-dismiss aria-label="关闭">×</button>
+      </header>
+      <div class="assistant-body">
+        <div class="assistant-modes">
+          <button type="button" data-mode="record" aria-pressed="true">
+            辅助记账</button
+          ><button type="button" data-mode="ask" aria-pressed="false">
+            询问账本
+          </button>
+        </div>
+        <label id="assistant-label" for="assistant-text">账单说明</label
+        ><textarea
+          id="assistant-text"
+          rows="4"
+          placeholder="例如：这是本月的月付账单，我用优惠券实还了 290 元。"
+        ></textarea>
+        <div id="assistant-drop">
+          <button type="button" class="secondary-button" id="assistant-upload">
+            选择账单截图</button
+          ><small>也可以粘贴或拖入多张图片</small
+          ><input
+            hidden
+            id="assistant-files"
+            type="file"
+            multiple
+            accept="image/*"
+          />
+        </div>
+        <div id="assistant-images"></div>
+        <small id="assistant-status" role="status"></small>
+        <button type="button" class="primary-button" id="assistant-preview">
+          查看记账建议示例
+        </button>
+        <section id="assistant-result" hidden aria-live="polite"></section>
+      </div>
+    </dialog>
   </body>
 </html>

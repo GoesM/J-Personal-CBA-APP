@@ -2560,3 +2560,353 @@ p {
   padding-left: 10px;
   background: color-mix(in srgb, var(--flow-color) 8%, white);
 }
+
+/* Keep the working month and entry actions in view while browsing the ledger. */
+@media (min-width: 801px) and (min-height: 540px) {
+  .main:has(#page-ledger.active) {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  .main:has(#page-ledger.active) .topbar {
+    flex: none;
+  }
+  #page-ledger.active {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    flex-direction: column;
+    padding-bottom: 16px;
+  }
+  #page-ledger .content-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  #page-ledger .ledger-panel {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #page-ledger .ledger-list {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  #page-ledger .side-stack {
+    overflow-y: auto;
+    align-content: start;
+  }
+  #page-ledger :is(.summary-grid, .page-heading, .panel-head, .filter-row) {
+    flex: none;
+  }
+}
+@media (min-width: 801px) and (max-height: 960px) {
+  #page-ledger {
+    padding-top: 16px;
+  }
+  #page-ledger .page-heading {
+    margin-bottom: 12px;
+  }
+  #page-ledger .summary-card {
+    min-height: 0;
+    padding: 12px 19px;
+  }
+  #page-ledger .summary-number {
+    margin-top: 4px;
+  }
+  #page-ledger .summary-foot {
+    margin-top: 5px;
+  }
+  #page-ledger .summary-grid {
+    margin-bottom: 12px;
+  }
+  #page-ledger .filter-row {
+    margin-top: 10px;
+  }
+}
+@media (max-width: 800px), (max-height: 539px) {
+  .main:has(#page-ledger.active) .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 9;
+    background: var(--surface);
+  }
+  #page-ledger .ledger-list {
+    overflow-y: auto;
+    max-height: 55dvh;
+    min-height: 150px;
+  }
+}
+.tool-dialog {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0;
+  color: var(--ink);
+  width: min(640px, 94vw);
+  max-height: 90dvh;
+  background: white;
+  box-shadow: 0 22px 90px #18342633;
+}
+.tool-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.tool-dialog::backdrop {
+  background: #162c226b;
+}
+.tool-dialog :is(input:not([type="checkbox"], [type="file"]), textarea) {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px;
+  color: inherit;
+  font: inherit;
+}
+.tool-dialog button:focus-visible,
+.tool-dialog input:focus-visible,
+.tool-dialog textarea:focus-visible,
+.ledger-list:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+.tool-heading,
+.tool-footer,
+.picker-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  flex: none;
+}
+.tool-heading {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+.tool-heading h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.tool-heading button,
+.assistant-modes button {
+  border: 0;
+  background: #eff4ef;
+  border-radius: 8px;
+  color: var(--green);
+  padding: 7px 12px;
+}
+.tool-heading button {
+  font-size: 20px;
+  line-height: 1;
+}
+.tool-footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+}
+.picker-search {
+  flex-wrap: wrap;
+}
+.picker-search input {
+  flex: 1 1 160px;
+}
+.picker-list {
+  overflow: auto;
+  min-height: 54px;
+  max-height: 40vh;
+  padding: 0 20px 10px;
+}
+.picker-list h3 {
+  font-size: 13px;
+  color: var(--green);
+  margin: 8px 0;
+}
+.picker-list label,
+#picker-shares label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.picker-list label span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.picker-list small,
+.assistant-drawer small {
+  display: block;
+  color: #627367;
+  font-size: 12px;
+}
+.picker-list input,
+.close-balance input,
+.picker-controls input[type="checkbox"] {
+  accent-color: var(--green);
+}
+.picker-summary {
+  padding: 12px 20px;
+  overflow: auto;
+  background: #f3f7f2;
+  min-height: 105px;
+}
+.picker-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.picker-controls input[type="number"] {
+  width: 104px;
+  margin-left: 8px;
+}
+.picker-summary summary,
+.assistant-body summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+#picker-shares {
+  max-height: 17vh;
+  overflow: auto;
+}
+#picker-shares input {
+  width: 100px;
+  margin-left: auto;
+}
+#picker-status {
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+.close-balance {
+  display: block;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.assistant-drawer {
+  margin: 0 0 0 auto;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: min(440px, 95vw);
+  border-radius: 18px 0 0 18px;
+}
+.assistant-body {
+  overflow: auto;
+  display: grid;
+  gap: 13px;
+  padding: 20px;
+}
+.assistant-modes {
+  display: flex;
+  gap: 8px;
+}
+.assistant-modes [aria-pressed="true"] {
+  background: var(--green);
+  color: white;
+}
+.assistant-body textarea {
+  resize: vertical;
+}
+#assistant-drop {
+  padding: 16px;
+  border: 1px dashed #96aa99;
+  border-radius: 12px;
+  text-align: center;
+}
+#assistant-drop small {
+  margin-top: 6px;
+}
+#assistant-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#assistant-images:empty,
+#assistant-status:empty {
+  display: none;
+}
+#assistant-images figure {
+  position: relative;
+  margin: 0;
+}
+#assistant-images img {
+  width: 76px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+#assistant-images button {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid var(--line);
+}
+#assistant-result {
+  background: #f3f7f2;
+  border-radius: 12px;
+  padding: 15px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+#assistant-result h3 {
+  margin: 0;
+}
+#assistant-open[hidden] {
+  display: none;
+}
+
+#page-ledger .entry-row {
+  margin-inline: 0;
+}
+#page-ledger .page-heading {
+  align-items: center;
+}
+#page-ledger .page-heading h1 {
+  margin: 0;
+}
+@media (min-width: 801px) and (max-height: 740px) {
+  .main:has(#page-ledger.active) .topbar {
+    height: 56px;
+  }
+  #page-ledger .summary-card {
+    padding: 9px 15px;
+  }
+  #page-ledger .ledger-panel {
+    padding: 14px;
+  }
+  #page-ledger .ledger-panel .eyebrow {
+    display: none;
+  }
+  #page-ledger .summary-foot {
+    font-size: 10px;
+  }
+  #page-ledger .mini-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+@media (min-width: 801px) and (max-width: 1030px) {
+  .app-shell:has(#page-ledger.active) {
+    grid-template-columns: 156px minmax(0, 1fr);
+  }
+  #page-ledger .content-grid {
+    grid-template-columns: minmax(0, 1fr) 150px;
+    gap: 12px;
+  }
+  #page-ledger .side-stack .panel {
+    padding: 14px;
+    min-height: 0;
+  }
+  #page-ledger .filter-row select {
+    max-width: 100px;
+  }
+  #page-ledger .entry-row {
+    gap: 6px;
+  }
+}

@@ -59,6 +59,7 @@
     return parts(entry)
       .map((part) => ({
         ...part,
+        amount: principalOf(part),
         categoryId: `system:${part.kind}`,
         name: TAGS[part.kind].name,
       }))
@@ -112,6 +113,54 @@
     (cents(entry.amount) -
       (entry.type === "expense" ? cents(entry.credit?.amount) : 0)) /
     100;
+  // amount is the cash assigned to this detail; principal is the balance cleared.
+  const principalOf = (part) => part.principal ?? part.amount;
+  const adjustmentCategories = ["income", "expense"].map((type) => ({
+    id: "settlement:" + type,
+    type,
+    name: "结清差额" + (type === "income" ? "收入" : "支出"),
+    color: type === "income" ? "#699c83" : "#c87f58",
+    icon: "差",
+  }));
+  function adjustment(part) {
+    const difference = cents(part.amount) - cents(principalOf(part));
+    if (!difference) return null;
+    const gain = part.kind === "repaid" ? difference < 0 : difference > 0;
+    const cat = adjustmentCategories[gain ? 0 : 1];
+    return {
+      type: cat.type,
+      categoryId: cat.id,
+      name: cat.name,
+      amount: Math.abs(difference) / 100,
+    };
+  }
+  function ordinaryEntries(entry) {
+    const base = actualAmount(entry);
+    const result = base > 0 ? [{ ...entry, amount: base }] : [];
+    for (const part of parts(entry)) {
+      const delta = adjustment(part);
+      if (delta) result.push({ ...entry, ...delta });
+    }
+    return result;
+  }
+  // Largest-remainder allocation, exact even at the maximum accepted amounts.
+  function distributeCash(amount, claims) {
+    const total = BigInt(cents(amount));
+    const weights = claims.map((c) => BigInt(cents(c.remaining)));
+    const sum = weights.reduce((a, b) => a + b, 0n);
+    if (!sum) return [];
+    const shares = weights.map((w, index) => ({
+      index,
+      value: (total * w) / sum,
+      remainder: (total * w) % sum,
+    }));
+    const left = Number(total - shares.reduce((n, s) => n + s.value, 0n));
+    [...shares]
+      .sort((a, b) => Number(b.remainder - a.remainder) || a.index - b.index)
+      .slice(0, left)
+      .forEach((s) => s.value++);
+    return shares.map((s) => Number(s.value) / 100);
+  }
   function claims(entries, cutoff = "9999-12-31") {
     const result = [];
     for (const entry of entries) {
@@ -150,11 +199,13 @@
         if (!TAGS[part.kind]?.target) continue;
         const claim = lookup.get(part.targetId);
         if (!claim) continue;
-        claim.settled = (cents(claim.settled) + cents(part.amount)) / 100;
+        claim.settled = (cents(claim.settled) + cents(principalOf(part))) / 100;
         claim.settlements.push({
           entryId: entry.id,
           date: entry.date,
           amount: part.amount,
+          principal: principalOf(part),
+          adjustment: adjustment(part),
           description: entry.description,
         });
       }
@@ -181,7 +232,19 @@
           throw new Error("特定标签明细 ID 重复或无效。");
         ids.add(part.id);
         const tag = TAGS[part.kind];
-        if (!tag || tag.type !== entry.type || !amountOK(part.amount))
+        if (
+          part.principal !== undefined &&
+          !(tag?.target && amountOK(part.principal))
+        )
+          throw new Error("结清本金需关联原账目，且必须大于零。");
+        if (
+          !tag ||
+          tag.type !== entry.type ||
+          !(
+            amountOK(part.amount) ||
+            (part.principal !== undefined && part.amount === 0)
+          )
+        )
           throw new Error("特定标签的类型或金额无效。");
         allocated += cents(part.amount);
         if (["reimbursable", "reimbursed"].includes(part.kind)) {
@@ -241,10 +304,11 @@
           throw new Error("还款、收回或报销的对方必须与原始账目一致。");
         if (entry.date < target.date)
           throw new Error("结算日期不能早于原始账目日期。");
-        const paid = (settled.get(part.targetId) || 0) + cents(part.amount);
+        const paid =
+          (settled.get(part.targetId) || 0) + cents(principalOf(part));
         if (paid > cents(target.amount)) {
           const error = new Error(
-            `“${target.description}”（${target.date} · ${target.party || "未指定单位"}）累计结算 ¥${(paid / 100).toFixed(2)}，超过原始金额 ¥${target.amount.toFixed(2)}，超出 ¥${((paid - cents(target.amount)) / 100).toFixed(2)}。请检查是否重复关联同一原账目；利息或额外收入请作为普通收支记录。`,
+            `“${target.description}”（${target.date} · ${target.party || "未指定单位"}）累计结算 ¥${(paid / 100).toFixed(2)}，超过原始金额 ¥${target.amount.toFixed(2)}，超出 ¥${((paid - cents(target.amount)) / 100).toFixed(2)}。请核对原账目和本金。若实际收付包含差额，可选择按实收／实付结清。`,
           );
           error.targetId = part.targetId;
           throw error;
@@ -333,7 +397,9 @@
         // Repayments to the same lender are fungible. Reimbursements and personal
         // advances identify a specific underlying expense, so require review.
         const replacement =
-          part.kind === "repaid" && oldClaim.kind === "borrowed"
+          part.principal === undefined &&
+          part.kind === "repaid" &&
+          oldClaim.kind === "borrowed"
             ? claims(remaining).find(
                 (claim) =>
                   claim.kind === "borrowed" &&
@@ -377,6 +443,11 @@
   return {
     TAGS,
     FLOW_CATEGORIES,
+    principalOf,
+    adjustment,
+    adjustmentCategories,
+    ordinaryEntries,
+    distributeCash,
     flowComponents,
     flowTotals,
     cents,

@@ -131,8 +131,14 @@ function validateState(state) {
     state.analysisPreferences.basis = "actual";
   assert(
     Array.isArray(excluded) &&
-      excluded.length <= state.categories.length &&
-      excluded.every((id) => typeof id === "string" && categories.has(id)) &&
+      excluded.length <=
+        state.categories.length + Accounting.adjustmentCategories.length &&
+      excluded.every(
+        (id) =>
+          typeof id === "string" &&
+          (categories.has(id) ||
+            Accounting.adjustmentCategories.some((c) => c.id === id)),
+      ) &&
       new Set(excluded).size === excluded.length,
     "分析图表的类别筛选无效",
   );
@@ -145,7 +151,10 @@ function validateState(state) {
       "账目类型或日期无效",
     );
     assert(
-      validAmount(item.amount, true) &&
+      (validAmount(item.amount, true) ||
+        (item.amount === 0 &&
+          Array.isArray(item.special) &&
+          item.special.some((p) => p?.principal > 0))) &&
         text(item.description, 80) &&
         colorPattern.test(item.color),
       "账目内容无效",

@@ -131,7 +131,7 @@
         },
         "excludedCategoryIds": {
           "type": "array",
-          "maxItems": 1000,
+          "maxItems": 1002,
           "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/id"
@@ -194,7 +194,7 @@
           "maxLength": 80
         },
         "amount": {
-          "$ref": "#/$defs/positiveAmount"
+          "$ref": "#/$defs/amount"
         },
         "color": {
           "$ref": "#/$defs/color"
@@ -209,7 +209,28 @@
         "credit": {
           "$ref": "#/$defs/creditPayment"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "amount": {
+                "const": 0
+              }
+            }
+          },
+          "then": {
+            "required": ["special"],
+            "properties": {
+              "special": {
+                "contains": {
+                  "required": ["principal"]
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "specialPart": {
       "type": "object",
@@ -233,12 +254,15 @@
           "maxLength": 60
         },
         "amount": {
-          "$ref": "#/$defs/positiveAmount"
+          "$ref": "#/$defs/amount"
         },
         "targetId": {
           "type": "string",
           "minLength": 1,
           "maxLength": 87
+        },
+        "principal": {
+          "$ref": "#/$defs/positiveAmount"
         }
       },
       "allOf": [
@@ -266,6 +290,25 @@
             "properties": {
               "party": {
                 "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["principal"]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": ["repaid", "recovered", "reimbursed"]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "amount": {
+                "$ref": "#/$defs/positiveAmount"
               }
             }
           }

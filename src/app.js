@@ -133,7 +133,17 @@
     saveQueue.catch((error) => toast(`保存失败：${error.message}`));
     return saveQueue;
   }
-  const category = (id) => state.categories.find((item) => item.id === id);
+  const category = (id) =>
+    state.categories.find((item) => item.id === id) ||
+    Accounting.adjustmentCategories.find((item) => item.id === id);
+  const chartCategories = () => [
+    ...state.categories,
+    ...Accounting.adjustmentCategories.filter((c) =>
+      state.entries.some((e) =>
+        e.special?.some((p) => Accounting.adjustment(p)?.categoryId === c.id),
+      ),
+    ),
+  ];
   const excludedCategoryIds = () => {
     if (!Array.isArray(state.analysisPreferences?.excludedCategoryIds))
       state.analysisPreferences = { excludedCategoryIds: [] };
@@ -142,9 +152,7 @@
   const sum = (array, fn) =>
     round(array.reduce((total, item) => total + fn(item), 0));
   const actualEntries = (entries) =>
-    entries
-      .map((item) => ({ ...item, amount: Accounting.actualAmount(item) }))
-      .filter((item) => item.amount > 0);
+    entries.flatMap(Accounting.ordinaryEntries);
   const FLOW_STYLES = {
     receivable: { name: "借出与收回", color: "#cc7938" },
     payable: { name: "借入与还出／信用付款", color: "#8864b4" },
@@ -172,13 +180,25 @@
     `<span class="flow-badge" data-flow-kind="${kind}" style="--flow-color:${flowColor(kind)}">${flowLabel(kind)}${detail ? ` · ${escapeHTML(detail)}` : ""}</span>`;
   const settlementStatus = (claim) =>
     claim.remaining <= 0 ? "已结清" : claim.settled > 0 ? "部分结清" : "未结清";
+  function adjustmentText(part) {
+    const delta = Accounting.adjustment(part);
+    return delta
+      ? " · 核销本金 " +
+          money(part.principal) +
+          " · " +
+          delta.name +
+          " " +
+          money(delta.amount)
+      : "";
+  }
   function entryBadges(entry, claims) {
     const details = (entry.special || []).map((part) => {
       const claim = claims.get(part.id);
       return (
         flowBadge(
           part.kind,
-          [part.party, money(part.amount)].filter(Boolean).join(" · "),
+          [part.party, money(part.amount)].filter(Boolean).join(" · ") +
+            adjustmentText(part),
         ) +
         (claim
           ? `<span class="flow-status">${settlementStatus(claim)}</span>`
@@ -253,6 +273,7 @@
   }
   function showPage(next) {
     page = next;
+    $("#assistant-open").hidden = next !== "ledger";
     $$(".nav-item").forEach((item) =>
       item.classList.toggle("active", item.dataset.page === next),
     );
@@ -281,13 +302,14 @@
     );
     $("#ledger-month").value = ledgerMonth;
     const current = monthEntries(ledgerMonth);
+    const ordinary = actualEntries(current);
     const income = sum(
-      current.filter((item) => item.type === "income"),
-      (item) => Accounting.actualAmount(item),
+      ordinary.filter((e) => e.type === "income"),
+      (e) => e.amount,
     );
     const expense = sum(
-      current.filter((item) => item.type === "expense"),
-      (item) => Accounting.actualAmount(item),
+      ordinary.filter((e) => e.type === "expense"),
+      (e) => e.amount,
     );
     $("#ledger-net").textContent = money(income - expense);
     $("#ledger-income").textContent = money(income);
@@ -335,6 +357,7 @@
       if (!groups.has(item.date)) groups.set(item.date, []);
       groups.get(item.date).push(item);
     });
+    const scrollPosition = $("#ledger-list").scrollTop;
     $("#ledger-list").innerHTML = filtered.length
       ? [...groups]
           .map(
@@ -349,8 +372,9 @@
           )
           .join("")
       : `<div class="empty"><div><div class="empty-symbol">◌</div><strong>这里还没有账目</strong>试试切换月份或筛选条件，也可以记下第一笔。</div></div>`;
+    $("#ledger-list").scrollTop = scrollPosition;
     const expenseGroups = groupByCategory(
-      actualEntries(current).filter((item) => item.type === "expense"),
+      ordinary.filter((item) => item.type === "expense"),
     );
     const top = expenseGroups[0];
     $("#top-category").innerHTML = top
@@ -406,7 +430,7 @@
         lent: "记收回",
         reimbursable: "记报销",
       }[claim.kind];
-      return `<div class="obligation-record" style="--flow-color:${flowColor(claim.kind)}"><div>${flowBadge(claim.credit ? "credit" : claim.kind)} <span class="flow-status">${settlementStatus(claim)}</span><br><button class="text-link" type="button" data-obligation-edit="${escapeHTML(claim.entryId)}">${escapeHTML(claim.description)}</button><small>${claim.date}${claim.credit ? " · 信用付款" : ""}${claim.party ? ` · ${escapeHTML(claim.party)}` : ""}</small></div><div class="obligation-amounts"><span>原额 <b>${money(claim.amount)}</b></span><span>${claim.kind === "reimbursable" ? "已到账" : "已结算"} <b>${money(claim.settled)}</b></span><span>未结清 <b>${money(claim.remaining)}</b></span></div>${claim.remaining > 0 ? `<button type="button" class="secondary-button" data-settle="${escapeHTML(claim.id)}" data-settle-kind="${kind}">${action}</button>` : '<span class="settled-badge">已结清</span>'}</div>${claim.settlements.length ? `<details class="settlement-history"><summary>${claim.settlements.length} 笔结算记录</summary>${claim.settlements.map((s) => `<div><button class="text-link" type="button" data-obligation-edit="${escapeHTML(s.entryId)}">${s.date} · ${escapeHTML(s.description)}</button><strong>${money(s.amount)}</strong></div>`).join("")}</details>` : ""}`;
+      return `<div class="obligation-record" style="--flow-color:${flowColor(claim.kind)}"><div>${flowBadge(claim.credit ? "credit" : claim.kind)} <span class="flow-status">${settlementStatus(claim)}</span><br><button class="text-link" type="button" data-obligation-edit="${escapeHTML(claim.entryId)}">${escapeHTML(claim.description)}</button><small>${claim.date}${claim.credit ? " · 信用付款" : ""}${claim.party ? ` · ${escapeHTML(claim.party)}` : ""}</small></div><div class="obligation-amounts"><span>原额 <b>${money(claim.amount)}</b></span>${claim.kind === "reimbursable" ? `<span>已到账 <b>${money(sum(claim.settlements, (s) => s.amount))}</b></span>` : ""}<span>已核销本金 <b>${money(claim.settled)}</b></span><span>未结清 <b>${money(claim.remaining)}</b></span></div>${claim.remaining > 0 ? `<button type="button" class="secondary-button" data-settle="${escapeHTML(claim.id)}" data-settle-kind="${kind}">${action}</button>` : '<span class="settled-badge">已结清</span>'}</div>${claim.settlements.length ? `<details class="settlement-history"><summary>${claim.settlements.length} 笔结算记录</summary>${claim.settlements.map((s) => `<div><button class="text-link" type="button" data-obligation-edit="${escapeHTML(s.entryId)}">${s.date} · ${escapeHTML(s.description)}</button><strong>实收／付 ${money(s.amount)}${s.adjustment ? " · 本金 " + money(s.principal) + " · " + s.adjustment.name + " " + money(s.adjustment.amount) : ""}</strong></div>`).join("")}</details>` : ""}`;
     };
     for (const [kind, selector] of [
       ["borrowed", "#payables-list"],
@@ -557,7 +581,7 @@
       entries.filter((e) => !excludedCategoryIds().includes(e.categoryId)),
       (e) => e.amount,
     );
-    const items = state.categories.filter((item) => item.type === type);
+    const items = chartCategories().filter((item) => item.type === type);
     const excluded = new Set(excludedCategoryIds());
     const selected = items.filter((item) => !excluded.has(item.id)).length;
     $(`#${type}-category-filter`).innerHTML =
@@ -565,7 +589,7 @@
   }
   function renderDistribution(selector, items, type) {
     const excluded = new Set(excludedCategoryIds());
-    const selectedCategories = state.categories.filter(
+    const selectedCategories = chartCategories().filter(
       (item) => item.type === type && !excluded.has(item.id),
     );
     if (!selectedCategories.length) {
@@ -605,7 +629,7 @@
       const colors = [base, lightFlowColor(base)];
       const percent = total ? (totals[kinds[0]] / total) * 100 : 0;
       const chart = total
-        ? '<div class="donut" role="img" aria-label="本期往来发生额占比" style="background:conic-gradient(' +
+        ? '<div class="donut" role="img" aria-label="本期往来本金发生额占比" style="background:conic-gradient(' +
           colors[0] +
           " 0% " +
           percent +
@@ -613,7 +637,7 @@
           colors[1] +
           " " +
           percent +
-          '% 100%)"><div class="donut-center"><span>往来发生额</span><strong>' +
+          '% 100%)"><div class="donut-center"><span>本金发生额</span><strong>' +
           money(total) +
           "</strong></div></div>"
         : '<div class="distribution-empty">本期暂无此类金钱流</div>';
@@ -1004,6 +1028,17 @@
           `<button type="button" class="secondary-button" data-add-special="${kind}">＋ ${flowBadge(kind)}</button>`,
       )
       .join("");
+    for (const [kind, tag] of Object.entries(Accounting.TAGS)) {
+      if (tag.type !== type || !tag.target) continue;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "secondary-button";
+      button.dataset.pickClaims = kind;
+      button.textContent =
+        "批量" +
+        { repaid: "还款", recovered: "收回", reimbursed: "报销到账" }[kind];
+      $("#entry-special-actions").prepend(button);
+    }
     const claims = draftClaims();
     $("#entry-special-rows").innerHTML = draftSpecial
       .map((part, index) => {
@@ -1013,6 +1048,8 @@
               .filter(
                 (c) =>
                   c.kind === tag.target &&
+                  (c.date <= $("#entry-date").value ||
+                    c.id === part.targetId) &&
                   (c.id === part.targetId ||
                     !draftSpecial.some(
                       (other, otherIndex) =>
@@ -1026,7 +1063,7 @@
               )
               .join("")
           : "";
-        return `<div class="special-row" style="--flow-color:${flowColor(part.kind)}" data-special-index="${index}"><div class="special-row-head"><strong>${flowBadge(part.kind)}</strong><button type="button" class="delete-action" data-remove-special="${index}" aria-label="移除${tag.name}明细">移除</button></div>${tag.target ? `<div class="field"><label>关联原始账目 <em>*</em><select data-special-field="targetId" aria-label="${tag.name}关联原始账目"><option value="">请选择（可跨月关联）</option>${options}</select></label></div>` : ""}<div class="field-grid"><div class="field"><label>${tag.party}<input data-special-field="party" value="${escapeHTML(part.party)}" maxlength="60" list="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}-suggestions" data-party-group="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}" ${tag.target && claims.find((c) => c.id === part.targetId)?.party ? "readonly" : ""} placeholder="${part.kind === "reimbursable" ? "例如：公司差旅" : "名称需与之前保持一致"}" aria-label="${tag.name}对方"></label></div><div class="field"><label>金额 <em>*</em><input data-special-field="amount" type="number" min="0.01" max="1000000000" step="0.01" value="${part.amount || ""}" aria-label="${tag.name}金额"></label></div></div></div>`;
+        return `<div class="special-row" style="--flow-color:${flowColor(part.kind)}" data-special-index="${index}"><div class="special-row-head"><strong>${flowBadge(part.kind)}</strong><button type="button" class="delete-action" data-remove-special="${index}" aria-label="移除${tag.name}明细">移除</button></div>${tag.target ? `<div class="field"><label>关联原始账目 <em>*</em><select data-special-field="targetId" aria-label="${tag.name}关联原始账目"><option value="">请选择（可跨月关联）</option>${options}</select></label></div>` : ""}<div class="field-grid"><div class="field"><label>${tag.party}<input data-special-field="party" value="${escapeHTML(part.party)}" maxlength="60" list="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}-suggestions" data-party-group="${part.kind.startsWith("reimburs") ? "reimbursement" : "debt"}" ${tag.target && claims.find((c) => c.id === part.targetId)?.party ? "readonly" : ""} placeholder="${part.kind === "reimbursable" ? "例如：公司差旅" : "名称需与之前保持一致"}" aria-label="${tag.name}对方"></label></div><div class="field"><label>金额 <em>*</em><input data-special-field="amount" type="number" min="${part.principal !== undefined ? 0 : 0.01}" max="1000000000" step="0.01" value="${part.amount ?? ""}" aria-label="${tag.name}金额"></label></div></div>${tag.target && part.targetId ? `<label class="close-balance"><input type="checkbox" data-close-balance ${part.principal !== undefined ? "checked" : ""}> 按实收／实付结清此笔</label>` : ""}</div>`;
       })
       .reverse()
       .join("");
@@ -1052,7 +1089,10 @@
       : undefined;
   }
   function renderSplitPreview() {
-    const amount = numeric($("#entry-amount").value);
+    const amount = numeric(
+      $("#entry-amount").value,
+      draftSpecial.some((p) => p.principal !== undefined),
+    );
     const preview = $("#entry-split-preview");
     if (amount === null) {
       preview.textContent = "填入总金额后，会显示自动拆分结果。";
@@ -1075,7 +1115,7 @@
         )
           .map(
             (part) =>
-              `<span>${part.kind === "ordinary" ? escapeHTML(part.name) : flowBadge(part.kind === "borrowed" && part.name.includes("信用付款") ? "credit" : part.kind, part.party)}<b>${money(part.amount)}</b></span>`,
+              `<span>${part.kind === "ordinary" ? escapeHTML(part.name) : flowBadge(part.kind === "borrowed" && part.name.includes("信用付款") ? "credit" : part.kind, part.party)}<b>${money(part.amount)}${adjustmentText(part)}</b></span>`,
           )
           .join(
             "",
@@ -1257,7 +1297,8 @@
     }),
   );
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeModals();
+    if (event.key === "Escape" && !document.querySelector("dialog[open]"))
+      closeModals();
   });
   $("#top-add").addEventListener("click", () => openEntry());
   $("#quick-add").addEventListener("click", () => openEntry());
@@ -1331,6 +1372,39 @@
     ),
   );
   $("#entry-special-actions").addEventListener("click", (event) => {
+    const pick = event.target.closest("[data-pick-claims]");
+    if (pick) {
+      const kind = pick.dataset.pickClaims;
+      const date = $("#entry-date").value;
+      const claims = draftClaims().filter(
+        (c) =>
+          c.kind === Accounting.TAGS[kind].target &&
+          c.date <= date &&
+          c.remaining > 0 &&
+          !draftSpecial.some((p) => p.targetId === c.id),
+      );
+      const allocated = sum(draftSpecial, (p) => Number(p.amount) || 0);
+      window.openClaimPicker({
+        kind,
+        claims,
+        limit: 50 - draftSpecial.length,
+        date,
+        available: $("#entry-amount").value
+          ? Math.max(0, round(Number($("#entry-amount").value) - allocated))
+          : null,
+        apply(rows, updateTotal) {
+          draftSpecial.push(
+            ...rows.map((row) => ({ ...row, kind, id: uid() })),
+          );
+          const used = sum(draftSpecial, (p) => Number(p.amount) || 0);
+          $("#entry-amount").value = updateTotal
+            ? used
+            : Math.max(Number($("#entry-amount").value) || 0, used);
+          renderSpecialRows();
+        },
+      });
+      return;
+    }
     const button = event.target.closest("[data-add-special]");
     if (button) addSpecial(button.dataset.addSpecial);
   });
@@ -1351,11 +1425,32 @@
     renderSplitPreview();
   });
   $("#entry-special-rows").addEventListener("change", (event) => {
+    if (event.target.matches("[data-close-balance]")) {
+      const part =
+        draftSpecial[
+          Number(
+            event.target.closest("[data-special-index]").dataset.specialIndex,
+          )
+        ];
+      const original = draftClaims().find((c) => c.id === part.targetId);
+      if (
+        event.target.checked &&
+        original?.settlements.some((s) => s.date > $("#entry-date").value)
+      ) {
+        event.target.checked = false;
+        return toast("这笔原账还有更晚的结算，请核对结清日期。");
+      }
+      if (event.target.checked && original) part.principal = original.remaining;
+      else delete part.principal;
+      renderSpecialRows();
+      return;
+    }
     if (event.target.dataset.specialField !== "targetId") return;
     const index = Number(
       event.target.closest("[data-special-index]").dataset.specialIndex,
     );
     const part = draftSpecial[index];
+    delete part.principal;
     part.targetId = event.target.value;
     const claim = draftClaims().find((c) => c.id === part.targetId);
     part.party = claim?.party || "";
@@ -1376,6 +1471,7 @@
       preventScroll: true,
     });
   });
+  $("#entry-date").addEventListener("change", renderSpecialRows);
   $("#entry-credit-enabled").addEventListener("change", renderSpecialRows);
   ["#entry-amount", "#entry-credit-party", "#entry-credit-amount"].forEach(
     (selector) => $(selector).addEventListener("input", renderSplitPreview),
@@ -1410,7 +1506,10 @@
   });
   $("#entry-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const amount = numeric($("#entry-amount").value);
+    const amount = numeric(
+      $("#entry-amount").value,
+      draftSpecial.some((p) => p.principal !== undefined),
+    );
     if (amount === null) return toast("请输入大于 0 且最多两位小数的金额。");
     const type = $("#entry-type").value,
       categoryId = $("#entry-category").value;
@@ -1462,7 +1561,7 @@
     } finally {
       submit.disabled = false;
     }
-    ledgerMonth = entry.date.slice(0, 7);
+    if (index < 0 || page !== "ledger") ledgerMonth = entry.date.slice(0, 7);
     render();
     closeModals();
     toast(index >= 0 ? "账目已更新" : "账目已保存");
@@ -1526,7 +1625,7 @@
     const button = event.target.closest("button[data-distribution-action]");
     if (!button) return;
     const excluded = new Set(excludedCategoryIds());
-    state.categories
+    chartCategories()
       .filter((item) => item.type === button.dataset.distributionType)
       .forEach((item) => {
         if (button.dataset.distributionAction === "all")
