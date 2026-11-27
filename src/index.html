@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="./styles.css" />
     <script defer src="./accounting.js"></script>
     <script defer src="./ledger-tools.js"></script>
+    <script defer src="./assistant.js"></script>
     <script defer src="./app.js"></script>
   </head>
   <body>
@@ -55,7 +56,7 @@
             <span>✦</span>
             <p>每一笔记录，都是生活的一部分。</p>
           </div>
-          <div class="privacy-note">离线保存 · 数据仅保存在本机</div>
+          <div class="privacy-note">账本保存在本机</div>
         </div>
       </aside>
 
@@ -67,9 +68,11 @@
             <strong id="breadcrumb-name">账目明细</strong>
           </div>
           <div class="top-actions">
-            <button type="button" class="secondary-button" id="assistant-open">
-              AI 助手</button
-            ><span class="demo-badge">本机数据</span
+            <div id="ai-actions">
+              <button type="button" id="assistant-open">✦ AI 智填</button
+              ><button type="button" id="assistant-ask">AI 智问</button>
+            </div>
+            <span class="demo-badge">本机数据</span
             ><button class="primary-button top-add" id="top-add" type="button">
               <span>＋</span> 记一笔
             </button>
@@ -86,38 +89,32 @@
               ><input type="month" id="ledger-month" />
             </div>
           </div>
-          <div class="summary-grid">
-            <article class="summary-card net-card">
-              <div class="card-top">
-                <span>本月实际结余</span><span class="card-symbol">↗</span>
+          <section class="money-overview" aria-label="期间收支总览">
+            <div class="overview-net">
+              <span>本月实际结余</span><strong id="ledger-net">¥ 0.00</strong
+              ><small id="ledger-net-hint"></small>
+            </div>
+            <dl>
+              <div>
+                <dt>实际收入</dt>
+                <dd id="ledger-income">¥ 0.00</dd>
               </div>
-              <div class="summary-number" id="ledger-net">¥ 0.00</div>
-              <div class="summary-foot" id="ledger-net-hint">收入减去支出</div>
-              <div class="net-decoration"></div>
-            </article>
-            <article class="summary-card">
-              <div class="card-top">
-                <span>本月实际收入</span
-                ><span class="mini-icon income-icon">↓</span>
+              <div>
+                <dt>实际支出</dt>
+                <dd id="ledger-expense">¥ 0.00</dd>
               </div>
-              <div class="summary-number" id="ledger-income">¥ 0.00</div>
-              <div class="summary-foot">
-                <span class="foot-dot green"></span
-                ><span id="income-count">0 笔收入</span>
+            </dl>
+            <dl>
+              <div>
+                <dt>现金流入</dt>
+                <dd id="ledger-cash-in">¥ 0.00</dd>
               </div>
-            </article>
-            <article class="summary-card">
-              <div class="card-top">
-                <span>本月实际支出</span
-                ><span class="mini-icon expense-icon">↑</span>
+              <div>
+                <dt>现金流出</dt>
+                <dd id="ledger-cash-out">¥ 0.00</dd>
               </div>
-              <div class="summary-number" id="ledger-expense">¥ 0.00</div>
-              <div class="summary-foot">
-                <span class="foot-dot orange"></span
-                ><span id="expense-count">0 笔支出</span>
-              </div>
-            </article>
-          </div>
+            </dl>
+          </section>
           <div class="content-grid">
             <section class="panel ledger-panel">
               <div class="panel-head">
@@ -157,25 +154,6 @@
                 aria-label="滚动浏览账目记录"
               ></div>
             </section>
-            <aside class="side-stack">
-              <section class="panel quick-panel">
-                <div class="eyebrow">QUICK ACTION</div>
-                <h2>今天记录了什么？</h2>
-                <p>一杯咖啡、一笔收入，随手记下来。</p>
-                <button
-                  class="primary-button wide"
-                  id="quick-add"
-                  type="button"
-                >
-                  ＋ 新增账目
-                </button>
-              </section>
-              <section class="panel insight-panel">
-                <div class="eyebrow">THIS MONTH</div>
-                <h2>支出最多的类别</h2>
-                <div id="top-category" class="top-category"></div>
-              </section>
-            </aside>
           </div>
         </section>
 
@@ -216,37 +194,33 @@
             </button>
           </nav>
           <div id="analysis-period-content">
-            <div class="analysis-hero">
-              <div>
-                <div class="eyebrow">NET BALANCE</div>
-                <p id="analysis-period-label">本月净结余</p>
-                <div class="hero-number" id="analysis-net">¥ 0.00</div>
-                <div class="hero-sub" id="analysis-status">收入减去支出</div>
+            <section class="money-overview" aria-label="期间收支总览">
+              <div class="overview-net">
+                <span id="analysis-period-label">本期实际结余</span
+                ><strong id="analysis-net">¥ 0.00</strong
+                ><small id="analysis-status"></small>
               </div>
-              <div class="hero-split">
+              <dl>
                 <div>
-                  <span>实际收入</span
-                  ><strong id="analysis-income">¥ 0.00</strong>
+                  <dt>实际收入</dt>
+                  <dd id="analysis-income">¥ 0.00</dd>
                 </div>
                 <div>
-                  <span>实际支出</span
-                  ><strong id="analysis-expense">¥ 0.00</strong>
+                  <dt>实际支出</dt>
+                  <dd id="analysis-expense">¥ 0.00</dd>
                 </div>
-              </div>
-            </div>
-            <div class="cash-summary">
-              <div>
-                <span>现金流入</span
-                ><strong id="analysis-cash-in">¥ 0.00</strong>
-              </div>
-              <div>
-                <span>现金流出</span
-                ><strong id="analysis-cash-out">¥ 0.00</strong>
-              </div>
-              <small
-                >含债务与报销资金往来；信用消费在实际还款时计现金流出，不含理财模块划转。</small
-              >
-            </div>
+              </dl>
+              <dl>
+                <div>
+                  <dt>现金流入</dt>
+                  <dd id="analysis-cash-in">¥ 0.00</dd>
+                </div>
+                <div>
+                  <dt>现金流出</dt>
+                  <dd id="analysis-cash-out">¥ 0.00</dd>
+                </div>
+              </dl>
+            </section>
             <div class="analysis-basis">
               <p id="analysis-basis-hint"></p>
             </div>
@@ -1081,43 +1055,94 @@
     >
       <header class="tool-heading">
         <div>
-          <h2 id="assistant-title">账本 AI 助手</h2>
-          <small>交互预览 · 使用示例账目演示</small>
+          <h2 id="assistant-title">账本智能体</h2>
+          <small id="ai-connection"></small>
         </div>
         <button type="button" data-dismiss aria-label="关闭">×</button>
       </header>
       <div class="assistant-body">
-        <div class="assistant-modes">
-          <button type="button" data-mode="record" aria-pressed="true">
-            辅助记账</button
-          ><button type="button" data-mode="ask" aria-pressed="false">
-            询问账本
-          </button>
-        </div>
-        <label id="assistant-label" for="assistant-text">账单说明</label
-        ><textarea
-          id="assistant-text"
-          rows="4"
-          placeholder="例如：这是本月的月付账单，我用优惠券实还了 290 元。"
-        ></textarea>
-        <div id="assistant-drop">
-          <button type="button" class="secondary-button" id="assistant-upload">
-            选择账单截图</button
-          ><small>也可以粘贴或拖入多张图片</small
-          ><input
-            hidden
-            id="assistant-files"
-            type="file"
-            multiple
-            accept="image/*"
-          />
-        </div>
-        <div id="assistant-images"></div>
-        <small id="assistant-status" role="status"></small>
-        <button type="button" class="primary-button" id="assistant-preview">
-          查看记账建议示例
-        </button>
-        <section id="assistant-result" hidden aria-live="polite"></section>
+        <nav class="assistant-modes" aria-label="智能体栏目">
+          <button data-mode="record">智填</button
+          ><button data-mode="ask">智问</button
+          ><button data-mode="usage">用量</button
+          ><button data-mode="config">模型设置</button>
+        </nav>
+        <section id="ai-chat">
+          <div id="ai-history" aria-live="polite"></div>
+          <div id="ai-proposal" hidden></div>
+          <label for="assistant-text" id="assistant-label">账单说明</label
+          ><textarea id="assistant-text" rows="3" maxlength="12000"></textarea>
+          <div id="assistant-drop">
+            <button
+              type="button"
+              class="secondary-button"
+              id="assistant-upload"
+            >
+              添加截图 / 账单</button
+            ><small>支持粘贴或拖入 PNG、JPEG、WebP、CSV、TXT</small
+            ><input
+              hidden
+              id="assistant-files"
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp,.csv,.txt"
+            />
+          </div>
+          <div id="assistant-images"></div>
+          <small
+            >发送后，所选模型服务将收到本次输入、近期对话和回答所需的账目信息。</small
+          >
+          <button id="ai-send" class="primary-button">发送</button>
+        </section>
+        <section id="ai-config" hidden>
+          <label>API 服务地址<input id="ai-base" type="url" /></label
+          ><label
+            >API Token<input
+              id="ai-token"
+              type="password"
+              autocomplete="off"
+              placeholder="输入新 Token 可替换本机凭据"
+          /></label>
+          <button type="button" class="secondary-button" id="ai-discover">
+            保存连接并获取模型</button
+          ><label>可用模型<select id="ai-model"></select></label>
+          <details>
+            <summary>用量估价（人民币元 / 百万 Token）</summary>
+            <small id="ai-price-hint"></small
+            ><label
+              >未命中缓存的输入<input
+                id="ai-input"
+                type="number"
+                min="0"
+                step="any" /></label
+            ><label
+              >命中缓存的输入<input
+                id="ai-cached"
+                type="number"
+                min="0"
+                step="any" /></label
+            ><label
+              >输出<input id="ai-output" type="number" min="0" step="any"
+            /></label>
+          </details>
+          <button class="primary-button" id="ai-save">保存模型设置</button>
+        </section>
+        <section id="ai-usage" hidden>
+          <label
+            >统计范围<select id="ai-period">
+              <option value="1">近 24 小时</option>
+              <option value="7">近 1 周（7 天）</option>
+              <option value="30">近 1 月（30 天）</option>
+              <option value="365">近 1 年（365 天）</option>
+            </select></label
+          >
+          <div id="ai-usage-result"></div>
+          <small
+            >统计本机应用发出的模型请求，按调用时的单价估算。DeepSeek
+            默认按北京时间工作日高峰和空闲半价估算，法定节假日可能高估。实际扣费以服务商账单为准。</small
+          >
+        </section>
+        <p id="assistant-status" role="status"></p>
       </div>
     </dialog>
   </body>

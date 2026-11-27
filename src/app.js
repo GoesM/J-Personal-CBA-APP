@@ -265,6 +265,14 @@
     document.body.style.overflow = "";
     deleteAction = null;
   }
+  window.ledgerAgentView = {
+    ready: () => saveQueue,
+    categoryName: (id) => category(id)?.name,
+    applied(next) {
+      state = next;
+      render();
+    },
+  };
   function render() {
     renderLedger();
     renderAnalysis();
@@ -273,7 +281,7 @@
   }
   function showPage(next) {
     page = next;
-    $("#assistant-open").hidden = next !== "ledger";
+    $("#ai-actions").hidden = next !== "ledger";
     $$(".nav-item").forEach((item) =>
       item.classList.toggle("active", item.dataset.page === next),
     );
@@ -314,11 +322,18 @@
     $("#ledger-net").textContent = money(income - expense);
     $("#ledger-income").textContent = money(income);
     $("#ledger-expense").textContent = money(expense);
-    $("#income-count").textContent =
-      `${current.filter((item) => item.type === "income").length} 笔收入`;
-    $("#expense-count").textContent =
-      `${current.filter((item) => item.type === "expense").length} 笔支出`;
-    $("#ledger-net-hint").textContent = "实际收支：已排除债务本金、垫付与报销";
+    $("#ledger-net-hint").textContent = "实际收入减去实际支出";
+    for (const [type, id] of [
+      ["income", "in"],
+      ["expense", "out"],
+    ]) {
+      $("#ledger-cash-" + id).textContent = money(
+        sum(
+          current.filter((e) => e.type === type),
+          Accounting.cashAmount,
+        ),
+      );
+    }
     const categorySelect = $("#ledger-category");
     const selected = categorySelect.value;
     categorySelect.innerHTML =
@@ -373,13 +388,6 @@
           .join("")
       : `<div class="empty"><div><div class="empty-symbol">◌</div><strong>这里还没有账目</strong>试试切换月份或筛选条件，也可以记下第一笔。</div></div>`;
     $("#ledger-list").scrollTop = scrollPosition;
-    const expenseGroups = groupByCategory(
-      ordinary.filter((item) => item.type === "expense"),
-    );
-    const top = expenseGroups[0];
-    $("#top-category").innerHTML = top
-      ? `<div class="top-category-name"><span class="category-icon" style="background:${escapeHTML(top.color)}33;color:${escapeHTML(top.color)}">${escapeHTML(top.icon)}</span>${escapeHTML(top.name)}</div><div class="top-category-amount">${money(top.amount)}</div><div class="progress-track"><span style="width:${expense ? Math.round((top.amount / expense) * 100) : 0}%"></span></div><small>占本月总支出 ${expense ? Math.round((top.amount / expense) * 100) : 0}%</small>`
-      : '<div class="distribution-empty">本月还没有支出记录。</div>';
   }
   function groupByCategory(items) {
     const grouped = new Map();
@@ -486,7 +494,7 @@
         : entry.date.startsWith(String(analysisYear)),
     );
     $("#analysis-basis-hint").textContent =
-      "普通收支只计自己的消费和收入；债务本金、垫付与报销在下方独立统计。信用消费当天计消费，归还本金不再计支出。";
+      "普通收支只计自己的消费和收入；债务本金、垫付与报销在下方独立统计。信用消费当天计消费，实际还款时计现金流出。现金流包含往来款，理财划转独立统计。";
     const items = actualEntries(originalItems);
     renderFlowDistributions(originalItems);
     const incomes = items.filter((item) => item.type === "income");
@@ -1301,7 +1309,7 @@
       closeModals();
   });
   $("#top-add").addEventListener("click", () => openEntry());
-  $("#quick-add").addEventListener("click", () => openEntry());
+
   $("#ledger-month").addEventListener("change", (event) => {
     ledgerMonth = event.target.value || monthOffset(0);
     renderLedger();

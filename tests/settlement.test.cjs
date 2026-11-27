@@ -95,7 +95,7 @@ test("部分结算与显式结清独立计算本金、实际收付、差额；�
     [0.02, 0.01, 0.01],
   );
 });
-test("多选搜索保留选择，实付分摊至分，保存重开可编辑；助手只演示", async () => {
+test("多选搜索保留选择，实付分摊至分，保存重开可编辑；账本助手入口支持多附件", async () => {
   const originals = Array.from({ length: 20 }, (_, i) => ({
     ...entry("订单" + i, "expense", 15, []),
     credit: { amount: 15, party: i < 10 ? "月付A" : "月付B" },
@@ -127,7 +127,12 @@ test("多选搜索保留选择，实付分摊至分，保存重开可编辑；�
     info: async () => ({ dataPath: "test", backupPath: "test" }),
     onBeforeClose: () => {},
   };
-  for (const file of ["accounting.js", "ledger-tools.js", "app.js"])
+  for (const file of [
+    "accounting.js",
+    "ledger-tools.js",
+    "assistant.js",
+    "app.js",
+  ])
     w.eval(source(file));
   try {
     await tick();
@@ -183,17 +188,15 @@ test("多选搜索保留选择，实付分摊至分，保存重开可编辑；�
     const count = writes;
     $("#assistant-open").click();
     input("#assistant-text", "账单说明");
-    $("#assistant-preview").click();
-    assert.match($("#assistant-result").textContent, /固定示例/);
     $('[data-mode="ask"]').click();
-    $("#assistant-preview").click();
-    assert.match($("#assistant-result").textContent, /依据/);
+    assert.match($("#assistant-label").textContent, /问/);
     const file = new w.File(["image"], "账单.png", { type: "image/png" });
     const drop = new w.Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(drop, "dataTransfer", {
       value: { files: [file, file] },
     });
     $("#assistant-drawer").dispatchEvent(drop);
+    await tick();
     assert.equal(
       w.document.querySelectorAll("#assistant-images figure").length,
       2,

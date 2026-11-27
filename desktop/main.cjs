@@ -16,6 +16,10 @@ const {
   shortcutRoots,
   refreshIcons,
 } = require("./shortcuts.cjs");
+const { ModelService } = require("./ai-service.cjs");
+const { LedgerAgent } = require("./ledger-agent.cjs");
+let modelService, agent;
+const aiScope = () => [location.directory, store.manifest?.generation];
 let appearance;
 let appearanceQueue = Promise.resolve();
 
@@ -65,6 +69,62 @@ async function syncAppearanceShortcuts() {
 ipcMain.handle("ledger", async (event, method, value) => {
   authorized(event);
   switch (method) {
+    case "aiInfo":
+      return modelService.info();
+    case "aiConfigure":
+      return modelService.configure(value);
+    case "aiModels":
+      return modelService.models();
+    case "aiUsage":
+      return modelService.usage(value);
+    case "aiHistory": {
+      const scope = JSON.stringify(aiScope()),
+        p = agent.pending;
+      return {
+        scope,
+        history: await agent.history(aiScope()),
+        proposal:
+          p && p.scope === scope ? { id: p.id, changes: p.changes } : null,
+      };
+    }
+    case "aiRates": {
+      const c = await modelService.config();
+      return {
+        rates:
+          c.prices?.[value] ||
+          require("./ai-service.cjs").defaultRates(c.base, value),
+      };
+    }
+    case "aiTurn": {
+      await writeQueue;
+      if (!location.ready) throw Error("请先打开账本");
+      const currentStore = store;
+      const state = await currentStore.load(),
+        scope = aiScope();
+      const result = await agent.turn(scope, state, value);
+      if (
+        store !== currentStore ||
+        JSON.stringify(scope) !== JSON.stringify(aiScope())
+      )
+        throw Error("当前账本已切换");
+      return result;
+    }
+    case "aiDiscard": {
+      if (agent.pending?.id === value) {
+        agent.pending = null;
+        await agent.append(aiScope(), [
+          { role: "assistant", text: "用户已取消草稿。" },
+        ]);
+      }
+      return true;
+    }
+    case "aiApply": {
+      if (!location.ready) throw Error("账本尚未打开");
+      writeQueue = writeQueue
+        .catch(() => {})
+        .then(() => agent.apply(aiScope(), store, value));
+      return writeQueue;
+    }
     case "getAppearance":
       return appearance.type;
     case "setAppearance": {
@@ -245,6 +305,18 @@ async function smokeCheck() {
       )
         throw new Error("形象未持久保存");
       console.log("SMOKE_APPEARANCE ENFJ persisted through IPC");
+      const aiOk = await window.webContents.executeJavaScript(`(async()=>{
+        const q=s=>document.querySelector(s);
+        q('#assistant-open').click();
+        for(let i=0;i<40 && (q('#ai-config').hidden||q('#ai-save').disabled);i++)await new Promise(r=>setTimeout(r,25));
+        if(q('#ai-config').hidden)return false;
+        q('[data-mode="usage"]').click();
+        for(let i=0;i<40 && !q('#ai-usage-result').textContent;i++)await new Promise(r=>setTimeout(r,25));
+        const ok=q('#assistant-drawer').open && q('#ai-usage-result').textContent.includes("0 次调用") && q('#ledger-cash-in').textContent.includes("0.00");
+        q('#assistant-drawer').close();return ok;
+      })()`);
+      if (!aiOk) throw Error("智能体设置或用量面板启动异常");
+      console.log("SMOKE_AI model settings and usage through IPC");
       const shortcut = path.join(smokeRoot, "test.lnk");
       if (
         !shell.writeShortcutLink(shortcut, "create", {
@@ -287,6 +359,12 @@ app
   .whenReady()
   .then(async () => {
     const appDataRoot = app.getPath("userData");
+    modelService = new ModelService(
+      appDataRoot,
+      require("electron").safeStorage,
+      require("electron").net.fetch.bind(require("electron").net),
+    );
+    agent = new LedgerAgent(appDataRoot, modelService);
     location = await new LedgerLocation(appDataRoot).initialize();
     store = location.store;
     appearance = new Appearance(appDataRoot);
